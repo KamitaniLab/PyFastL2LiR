@@ -13,6 +13,7 @@ fastL2LR is an fast implementation of ridge regression (regression with L2 norma
 ```
 model = fastL2LiR_v1.fastL2LiR()
 model.fit(X,Y,alpha,numUsedInputFeatures)
+predicted = model.predict(X)
 ```
 Here, 
 * `X`: A matrix (# of training samples x # of voxels).  
@@ -24,4 +25,4 @@ Here,
 
 * Do not add bias term to `X`.   
 * Feature selection is included. Please do not perform it by yourself.  
-* `X` and `Y` should be z-scored with mean and variance of training data. 
+* `X` and `Y` should be z-scored with mean and variance of training data.

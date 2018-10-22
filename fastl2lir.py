@@ -53,7 +53,7 @@ def corrmat(x, y, var='row'):
 
 # In[291]:
 
-class fastL2LiR():
+class FastL2LiR():
     def __init__(self):
         print "fast L2 linear regression"
         

@@ -8,17 +8,25 @@ from numpy.matlib import repmat
 class FastL2LiR():
     '''Fast L2-regularized linear regression class.'''
 
-    def __init__(self):
-        self.__W = np.array([])
-        self.__b = np.array([])
+    def __init__(self, W=np.array([]), b=np.array([])):
+        self.__W = W
+        self.__b = b
 
     @property
     def W(self):
         return self.__W
 
+    @W.setter
+    def W(self, W):
+        self.__W = W
+
     @property
     def b(self):
         return self.__b
+
+    @b.setter
+    def b(self, b):
+        self.__b == b
 
     def fit(self, X, Y, alpha=0, n_feat=0):
         '''Fit the L2-regularized linear model with the given data.

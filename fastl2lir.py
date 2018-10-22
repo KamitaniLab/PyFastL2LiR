@@ -21,12 +21,37 @@ class FastL2LiR():
         return self.__b
 
     def fit(self, X, Y, alpha=0, n_feat=0):
+        '''Fit the L2-regularized linear model with the given data.
 
+        Parameters
+        ----------
+        X, Y : array_like
+            Training inputs (data and targets).
+        alpha: float
+            Regularization parameter (coefficient for L2-norm).
+        n_feta: int
+            The number of selected input features.
+
+        Returns
+        -------
+        self
+            Returns an instance of self.
+        '''
+
+        # Reshape Y
+        reshape_y = Y.ndim > 2
+
+        if reshape_y:
+            Y_shape = Y.shape
+            Y = Y.reshape(Y.shape[0], -1, order='F')
+
+        # Feature selection settings
         if n_feat == 0:
             n_feat = X.shape[1]
 
         feature_selection = X.shape[1] == n_feat
 
+        # Main
         if feature_selection:
             # Without feature selection
             X = np.hstack((X, np.ones((X.shape[0], 1))))
@@ -55,12 +80,43 @@ class FastL2LiR():
                     self.__W[I[index_selectedDim],
                              index_outputDim] = W[index_selectedDim]
                 self.__b[0, index_outputDim] = W[-1]
-            return self
+
+        if reshape_y:
+            Y = Y.reshape(Y_shape, order='F')
+            self.__W = self.__W.reshape((self.__W.shape[0],) + Y_shape[1:], order='F')
+            self.__b = self.__b.reshape((1,) + Y_shape[1:], order='F')
+
+        return self
 
     def predict(self, X):
-        predicted = np.matmul(X, self.__W) + \
-            np.matmul(np.ones((X.shape[0], 1)), self.__b)
-        return predicted
+        '''Predict with the fitted linear model.
+
+        Parameters
+        ----------
+        X : array_like
+
+        Returns
+        -------
+        Y : array_like
+        '''
+
+        # Reshape
+        reshape_y = self.__W.ndim > 2
+        if reshape_y:
+            Y_shape = self.__W.shape
+            W = self.__W.reshape(self.__W.shape[0], -1, order='F')
+            b = self.__b.reshape(self.__b.shape[0], -1, order='F')
+        else:
+            W = self.__W
+            b = self.__b
+
+        # Prediction
+        Y = np.matmul(X, W) + np.matmul(np.ones((X.shape[0], 1)), b)
+
+        if reshape_y:
+            Y = Y.reshape((Y.shape[0],) + Y_shape[1:], order='F')
+
+        return Y
 
 
 # Functions ##################################################################

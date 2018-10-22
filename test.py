@@ -42,6 +42,23 @@ class TestFastL2LiR(unittest.TestCase):
         np.testing.assert_array_equal(model_test.b, model_true.b)
         np.testing.assert_array_equal(predicted_test, predicted_true)
 
+    def test_reshape(self):
+        Y_shape = (200, 10, 10, 5)
+
+        X = np.random.rand(200, 100)
+        Y = np.random.rand(*Y_shape)
+        
+        alpha = 1.0
+        n_feat = 50
+
+        model_test = fastl2lir.FastL2LiR()
+        model_test.fit(X, Y, alpha, n_feat)
+        pred_test = model_test.predict(X)
+
+        np.testing.assert_array_equal(model_test.W.shape, (100, ) + Y_shape[1:])
+        np.testing.assert_array_equal(model_test.b.shape, (1, ) + Y_shape[1:])
+        np.testing.assert_array_equal(pred_test.shape, Y_shape)
+
 
 if __name__ == "__main__":
     test_suite = unittest.TestLoader().loadTestsFromTestCase(TestFastL2LiR)

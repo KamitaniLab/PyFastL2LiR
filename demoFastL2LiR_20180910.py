@@ -19,7 +19,7 @@ alpha = 1.0
 n_feat = 500
 
 # Prepare a model object (like scikit-learn functions)
-model = fastl2lir.fastL2LiR()
+model = fastl2lir.FastL2LiR()
 
 # Training
 start_t = time.time()

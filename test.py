@@ -34,7 +34,7 @@ class TestFastL2LiR(unittest.TestCase):
         alpha = 1.0
         n_feat = 50
 
-        model_test = fastl2lir.fastL2LiR()
+        model_test = fastl2lir.FastL2LiR()
         model_test.fit(X, Y, alpha, n_feat)
         predicted_test = model_test.predict(X)
 

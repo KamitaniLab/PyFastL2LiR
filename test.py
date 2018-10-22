@@ -47,7 +47,7 @@ class TestFastL2LiR(unittest.TestCase):
 
         X = np.random.rand(200, 100)
         Y = np.random.rand(*Y_shape)
-        
+
         alpha = 1.0
         n_feat = 50
 
@@ -58,6 +58,36 @@ class TestFastL2LiR(unittest.TestCase):
         np.testing.assert_array_equal(model_test.W.shape, (100, ) + Y_shape[1:])
         np.testing.assert_array_equal(model_test.b.shape, (1, ) + Y_shape[1:])
         np.testing.assert_array_equal(pred_test.shape, Y_shape)
+
+
+    def test_chunk(self):
+        '''Chunking test.'''
+
+        with open('test/test_x.pkl', 'rb') as f:
+            X = pickle.load(f)
+
+        with open('test/test_y.pkl', 'rb') as f:
+            Y = pickle.load(f)
+
+        with open('test/test_model.pkl', 'rb') as f:
+            model_true = pickle.load(f)
+
+        with open('test/test_predicted.pkl', 'rb') as f:
+            predicted_true = pickle.load(f)
+
+        alpha = 1.0
+        n_feat = 50
+
+        model_test = fastl2lir.FastL2LiR()
+        model_test.fit(X, Y, alpha, n_feat, chunk_size=16)
+        predicted_test = model_test.predict(X)
+
+        print(np.max(np.abs(model_test.W - model_true.W)))
+        print(np.max(np.abs(model_test.b - model_true.b)))
+
+        np.testing.assert_array_almost_equal(model_test.W, model_true.W)
+        np.testing.assert_array_almost_equal(model_test.b, model_true.b)
+        np.testing.assert_array_almost_equal(predicted_test, predicted_true)
 
 
 if __name__ == "__main__":

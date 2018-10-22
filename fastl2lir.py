@@ -1,5 +1,6 @@
 # At v2, the input dimensions with corrlations = NaN are excluded.
 
+import math
 
 import numpy as np
 from numpy.matlib import repmat
@@ -28,7 +29,7 @@ class FastL2LiR():
     def b(self, b):
         self.__b == b
 
-    def fit(self, X, Y, alpha=0, n_feat=0):
+    def fit(self, X, Y, alpha=0, n_feat=0, chunk_size=0, cache_dir='./cache'):
         '''Fit the L2-regularized linear model with the given data.
 
         Parameters
@@ -57,37 +58,25 @@ class FastL2LiR():
         if n_feat == 0:
             n_feat = X.shape[1]
 
-        feature_selection = X.shape[1] == n_feat
+        no_feature_selection = X.shape[1] == n_feat
 
-        # Main
-        if feature_selection:
-            # Without feature selection
-            X = np.hstack((X, np.ones((X.shape[0], 1))))
-            W = np.linalg.solve(np.matmul(X.T, X)+alpha *
-                                np.eye(X.shape[1]), np.matmul(X.T, Y))
-            self.__W = W[0:-1, :]
-            self.__b = W[-1, :]
+        # Chunking
+        if chunk_size > 0:
+            chunks = self.__get_chunks(range(Y.shape[1]), chunk_size)
+            w_list = []
+            b_list = []
+            for i, chunk in enumerate(chunks):
+                print('Chunk %d' % (i + 1))
+                W, b = self.__sub_fit(X, Y[0:, chunk], alpha=alpha, n_feat=n_feat, use_all_features=no_feature_selection)
+                w_list.append(W)
+                b_list.append(b)
+            W = np.hstack(w_list)
+            b = np.hstack(b_list)
         else:
-            # With feature selection
-            self.__W = np.zeros((X.shape[1], Y.shape[1]))
-            self.__b = np.zeros((1, Y.shape[1]))
-            I = np.nonzero(np.var(X, axis=0) < 0.00000001)
-            C = corrmat(X, Y, 'col')
-            C[I, :] = 0.0
-            X = np.hstack((X, np.ones((X.shape[0], 1))))
-            W0 = np.matmul(X.T, X) + alpha * np.eye(X.shape[1])
-            W1 = np.matmul(X.T, Y)
-            for index_outputDim in range(Y.shape[1]):
-                C0 = abs(C[:, index_outputDim])
-                I = np.argsort(C0)
-                I = I[::-1]
-                I = I[0:n_feat]
-                I = np.hstack((I, X.shape[1]-1))
-                W = np.linalg.solve(W0[I][:, I], W1[I][:, index_outputDim])
-                for index_selectedDim in range(n_feat):
-                    self.__W[I[index_selectedDim],
-                             index_outputDim] = W[index_selectedDim]
-                self.__b[0, index_outputDim] = W[-1]
+            W, b = self.__sub_fit(X, Y, alpha=alpha, n_feat=n_feat, use_all_features=no_feature_selection)
+
+        self.__W = W
+        self.__b = b
 
         if reshape_y:
             Y = Y.reshape(Y_shape, order='F')
@@ -125,6 +114,49 @@ class FastL2LiR():
             Y = Y.reshape((Y.shape[0],) + Y_shape[1:], order='F')
 
         return Y
+
+    def __sub_fit(self, X, Y, alpha=0, n_feat=0, use_all_features=True):
+        if use_all_features:
+            # Without feature selection
+            X = np.hstack((X, np.ones((X.shape[0], 1))))
+            Wb = np.linalg.solve(np.matmul(X.T, X)+alpha *
+                                np.eye(X.shape[1]), np.matmul(X.T, Y))
+            W = W[0:-1, :]
+            b = W[-1, :]
+        else:
+            # With feature selection
+            W = np.zeros((X.shape[1], Y.shape[1]))
+            b = np.zeros((1, Y.shape[1]))
+            I = np.nonzero(np.var(X, axis=0) < 0.00000001)
+            C = corrmat(X, Y, 'col')
+            C[I, :] = 0.0
+            X = np.hstack((X, np.ones((X.shape[0], 1))))
+            W0 = np.matmul(X.T, X) + alpha * np.eye(X.shape[1])
+            W1 = np.matmul(X.T, Y)
+            for index_outputDim in range(Y.shape[1]):
+                C0 = abs(C[:, index_outputDim])
+                I = np.argsort(C0)
+                I = I[::-1]
+                I = I[0:n_feat]
+                I = np.hstack((I, X.shape[1]-1))
+                Wb = np.linalg.solve(W0[I][:, I], W1[I][:, index_outputDim])
+                for index_selectedDim in range(n_feat):
+                    W[I[index_selectedDim], index_outputDim] = Wb[index_selectedDim]
+                b[0, index_outputDim] = Wb[-1]
+
+        return W, b
+
+    def __get_chunks(self, a, chunk_size):
+        n_chunk = int(math.ceil(len(a) / float(chunk_size)))
+
+        chunks = []
+        for i in range(n_chunk):
+            index_start = i * chunk_size
+            index_end = (i + 1) * chunk_size
+            index_end = len(a) if index_end > len(a) else index_end
+            chunks.append(a[index_start:index_end])
+
+        return chunks
 
 
 # Functions ##################################################################

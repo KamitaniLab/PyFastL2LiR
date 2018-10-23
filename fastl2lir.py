@@ -29,7 +29,7 @@ class FastL2LiR():
     def b(self, b):
         self.__b == b
 
-    def fit(self, X, Y, alpha=0, n_feat=0, chunk_size=0, cache_dir='./cache'):
+    def fit(self, X, Y, alpha=1.0, n_feat=0, chunk_size=0, cache_dir='./cache'):
         '''Fit the L2-regularized linear model with the given data.
 
         Parameters
@@ -66,7 +66,7 @@ class FastL2LiR():
             print('Num chunks: %d' % len(chunks))
             w_list = []
             b_list = []
-            for i, chunk in enumerate(chunks):
+            for chunk in chunks:
                 W, b = self.__sub_fit(X, Y[0:, chunk], alpha=alpha, n_feat=n_feat, use_all_features=no_feature_selection)
                 w_list.append(W)
                 b_list.append(b)

@@ -1,6 +1,7 @@
 # At v2, the input dimensions with corrlations = NaN are excluded.
 
 import math
+from time import time
 
 import numpy as np
 from numpy.matlib import repmat
@@ -9,9 +10,10 @@ from numpy.matlib import repmat
 class FastL2LiR():
     '''Fast L2-regularized linear regression class.'''
 
-    def __init__(self, W=np.array([]), b=np.array([])):
+    def __init__(self, W=np.array([]), b=np.array([]), verbose=False):
         self.__W = W
         self.__b = b
+        self.__verbose = verbose
 
     @property
     def W(self):
@@ -63,13 +65,22 @@ class FastL2LiR():
         # Chunking
         if chunk_size > 0:
             chunks = self.__get_chunks(range(Y.shape[1]), chunk_size)
-            print('Num chunks: %d' % len(chunks))
+
+            if self.__verbose:
+                print('Num chunks: %d' % len(chunks))
+
             w_list = []
             b_list = []
-            for chunk in chunks:
+            for i, chunk in enumerate(chunks):
+                start_time = time()
+
                 W, b = self.__sub_fit(X, Y[0:, chunk], alpha=alpha, n_feat=n_feat, use_all_features=no_feature_selection)
                 w_list.append(W)
                 b_list.append(b)
+
+                if self.__verbose:
+                    print('Chunk %d (time: %f s)' % (i + 1, time() - start_time))
+
             W = np.hstack(w_list)
             b = np.hstack(b_list)
         else:

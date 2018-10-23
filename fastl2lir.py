@@ -119,8 +119,7 @@ class FastL2LiR():
         if use_all_features:
             # Without feature selection
             X = np.hstack((X, np.ones((X.shape[0], 1))))
-            Wb = np.linalg.solve(np.matmul(X.T, X)+alpha *
-                                np.eye(X.shape[1]), np.matmul(X.T, Y))
+            Wb = np.linalg.solve(np.matmul(X.T, X) + alpha * np.eye(X.shape[1]), np.matmul(X.T, Y))
             W = W[0:-1, :]
             b = W[-1, :]
         else:

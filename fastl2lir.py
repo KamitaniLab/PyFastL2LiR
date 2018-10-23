@@ -63,10 +63,10 @@ class FastL2LiR():
         # Chunking
         if chunk_size > 0:
             chunks = self.__get_chunks(range(Y.shape[1]), chunk_size)
+            print('Num chunks: %d' % len(chunks))
             w_list = []
             b_list = []
             for i, chunk in enumerate(chunks):
-                print('Chunk %d' % (i + 1))
                 W, b = self.__sub_fit(X, Y[0:, chunk], alpha=alpha, n_feat=n_feat, use_all_features=no_feature_selection)
                 w_list.append(W)
                 b_list.append(b)

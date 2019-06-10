@@ -9,4 +9,4 @@ setup(name='fastl2lir',
       url='https://github.com/KamitaniLab/PyFastL2LiR',
       license='MIT',
       packages=['fastl2lir'],
-      install_requires=['numpy'])
+      install_requires=['numpy', 'tqdm'])

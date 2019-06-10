@@ -6,6 +6,8 @@ from time import time
 import numpy as np
 from numpy.matlib import repmat
 
+from tqdm import tqdm
+
 
 class FastL2LiR():
     '''Fast L2-regularized linear regression class.'''
@@ -143,7 +145,7 @@ class FastL2LiR():
             X = np.hstack((X, np.ones((X.shape[0], 1))))
             W0 = np.matmul(X.T, X) + alpha * np.eye(X.shape[1])
             W1 = np.matmul(X.T, Y)
-            for index_outputDim in range(Y.shape[1]):
+            for index_outputDim in tqdm(range(Y.shape[1])):
                 C0 = abs(C[:, index_outputDim])
                 I = np.argsort(C0)
                 I = I[::-1]

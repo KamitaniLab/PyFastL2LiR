@@ -134,7 +134,7 @@ class FastL2LiR():
             X = np.hstack((X, np.ones((X.shape[0], 1))))
             Wb = np.linalg.solve(np.matmul(X.T, X) + alpha * np.eye(X.shape[1]), np.matmul(X.T, Y))
             W = Wb[0:-1, :]
-            b = Wb[-1, :]
+            b = Wb[-1, :][np.newaxis, :]  # Returning b as a 2D array
         else:
             # With feature selection
             W = np.zeros((X.shape[1], Y.shape[1]))

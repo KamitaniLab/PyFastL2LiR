@@ -51,6 +51,9 @@ class FastL2LiR():
             Returns an instance of self.
         '''
 
+        if X.dtype != dtype: X = X.astype(dtype)
+        if Y.dtype != dtype: Y = Y.astype(dtype)
+
         # Reshape Y
         reshape_y = Y.ndim > 2
 
@@ -98,7 +101,7 @@ class FastL2LiR():
 
         return self
 
-    def predict(self, X):
+    def predict(self, X, dtype=np.float64):
         '''Predict with the fitted linear model.
 
         Parameters
@@ -109,6 +112,8 @@ class FastL2LiR():
         -------
         Y : array_like
         '''
+
+        if X.dtype != dtype: X = X.astype(dtype)
 
         # Reshape
         reshape_y = self.__W.ndim > 2
@@ -121,7 +126,7 @@ class FastL2LiR():
             b = self.__b
 
         # Prediction
-        Y = np.matmul(X, W) + np.matmul(np.ones((X.shape[0], 1)), b)
+        Y = np.matmul(X, W) + np.matmul(np.ones((X.shape[0], 1), dtype=dtype), b)
 
         if reshape_y:
             Y = Y.reshape((Y.shape[0],) + Y_shape[1:], order='F')

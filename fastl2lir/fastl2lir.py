@@ -33,7 +33,7 @@ class FastL2LiR():
     def b(self, b):
         self.__b == b
 
-    def fit(self, X, Y, alpha=1.0, n_feat=0, chunk_size=0, cache_dir='./cache'):
+    def fit(self, X, Y, alpha=1.0, n_feat=0, chunk_size=0, cache_dir='./cache', dtype=np.float64):
         '''Fit the L2-regularized linear model with the given data.
 
         Parameters
@@ -76,7 +76,7 @@ class FastL2LiR():
             for i, chunk in enumerate(chunks):
                 start_time = time()
 
-                W, b = self.__sub_fit(X, Y[0:, chunk], alpha=alpha, n_feat=n_feat, use_all_features=no_feature_selection)
+                W, b = self.__sub_fit(X, Y[0:, chunk], alpha=alpha, n_feat=n_feat, use_all_features=no_feature_selection, dtype=dtype)
                 w_list.append(W)
                 b_list.append(b)
 
@@ -86,7 +86,7 @@ class FastL2LiR():
             W = np.hstack(w_list)
             b = np.hstack(b_list)
         else:
-            W, b = self.__sub_fit(X, Y, alpha=alpha, n_feat=n_feat, use_all_features=no_feature_selection)
+            W, b = self.__sub_fit(X, Y, alpha=alpha, n_feat=n_feat, use_all_features=no_feature_selection, dtype=dtype)
 
         self.__W = W
         self.__b = b
@@ -128,17 +128,17 @@ class FastL2LiR():
 
         return Y
 
-    def __sub_fit(self, X, Y, alpha=0, n_feat=0, use_all_features=True):
+    def __sub_fit(self, X, Y, alpha=0, n_feat=0, use_all_features=True, dtype=np.float64):
         if use_all_features:
             # Without feature selection
-            X = np.hstack((X, np.ones((X.shape[0], 1))))
-            Wb = np.linalg.solve(np.matmul(X.T, X) + alpha * np.eye(X.shape[1]), np.matmul(X.T, Y))
+            X = np.hstack((X, np.ones((X.shape[0], 1), dtype=dtype)))
+            Wb = np.linalg.solve(np.matmul(X.T, X) + alpha * np.eye(X.shape[1], dtype=dtype), np.matmul(X.T, Y))
             W = Wb[0:-1, :]
             b = Wb[-1, :][np.newaxis, :]  # Returning b as a 2D array
         else:
             # With feature selection
-            W = np.zeros((X.shape[1], Y.shape[1]))
-            b = np.zeros((1, Y.shape[1]))
+            W = np.zeros((X.shape[1], Y.shape[1]), dtype=dtype)
+            b = np.zeros((1, Y.shape[1]), dtype=dtype)
             I = np.nonzero(np.var(X, axis=0) < 0.00000001)
             C = corrmat(X, Y, 'col')
             C[I, :] = 0.0

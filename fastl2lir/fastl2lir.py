@@ -9,7 +9,7 @@ from numpy.matlib import repmat
 from tqdm import tqdm
 
 
-class FastL2LiR():
+class FastL2LiR(object):
     '''Fast L2-regularized linear regression class.'''
 
     def __init__(self, W=np.array([]), b=np.array([]), verbose=False):
@@ -31,7 +31,7 @@ class FastL2LiR():
 
     @b.setter
     def b(self, b):
-        self.__b == b
+        self.__b = b
 
     def fit(self, X, Y, alpha=1.0, n_feat=0, chunk_size=0, cache_dir='./cache', dtype=np.float64):
         '''Fit the L2-regularized linear model with the given data.

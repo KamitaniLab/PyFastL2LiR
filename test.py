@@ -1,7 +1,7 @@
 '''Tests for PyFastL2LiR'''
 
 
-import unittest
+from unittest import TestCase, TestLoader, TextTestRunner
 import pickle
 
 import numpy as np
@@ -10,39 +10,93 @@ from numpy.testing import assert_array_equal
 import fastl2lir
 
 
-class TestFastL2LiR(unittest.TestCase):
+class TestFastL2LiR(TestCase):
     '''Tests for FastL2LiR'''
-
-    def __init__(self, *args, **kwargs):
-        super(TestFastL2LiR, self).__init__(*args, **kwargs)
 
     def test_basic(self):
         '''Basic Test.'''
 
-        with open('test/test_x.pkl', 'rb') as f:
-            X = pickle.load(f)
+        data = np.load('./test/testdata_basic.npz')
 
-        with open('test/test_y.pkl', 'rb') as f:
-            Y = pickle.load(f)
+        model_1d = fastl2lir.FastL2LiR()
+        model_2d = fastl2lir.FastL2LiR()
 
-        with open('test/test_model.pkl', 'rb') as f:
-            model_true = pickle.load(f)
+        model_1d.fit(data['x_tr'], data['y_1d'])
+        model_2d.fit(data['x_tr'], data['y_2d'])
 
-        with open('test/test_predicted.pkl', 'rb') as f:
-            predicted_true = pickle.load(f)
+        yp_1d = model_1d.predict(data['x_te'])
+        yp_2d = model_2d.predict(data['x_te'])
 
-        alpha = 1.0
-        n_feat = 50
+        np.testing.assert_array_equal(model_1d.W, data['w_1d'])
+        np.testing.assert_array_equal(model_1d.b, data['b_1d'])
+        np.testing.assert_array_equal(model_2d.W, data['w_2d'])
+        np.testing.assert_array_equal(model_2d.b, data['b_2d'])
 
-        model_test = fastl2lir.FastL2LiR()
-        model_test.fit(X, Y, alpha, n_feat)
-        predicted_test = model_test.predict(X)
+        np.testing.assert_array_equal(yp_1d, data['yp_1d'])
+        np.testing.assert_array_equal(yp_2d, data['yp_2d'])
 
-        np.testing.assert_array_equal(model_test.W, model_true.W)
-        np.testing.assert_array_equal(model_test.b, model_true.b)
-        np.testing.assert_array_equal(predicted_test, predicted_true)
+    def test_alpha(self):
+        '''Test for alpha.'''
+
+        data = np.load('./test/testdata_alpha01.npz')
+
+        model_1d = fastl2lir.FastL2LiR()
+        model_2d = fastl2lir.FastL2LiR()
+
+        model_1d.fit(data['x_tr'], data['y_1d'], alpha=0.1)
+        model_2d.fit(data['x_tr'], data['y_2d'], alpha=0.1)
+
+        yp_1d = model_1d.predict(data['x_te'])
+        yp_2d = model_2d.predict(data['x_te'])
+
+        np.testing.assert_array_equal(model_1d.W, data['w_1d'])
+        np.testing.assert_array_equal(model_1d.b, data['b_1d'])
+        np.testing.assert_array_equal(model_2d.W, data['w_2d'])
+        np.testing.assert_array_equal(model_2d.b, data['b_2d'])
+
+        np.testing.assert_array_equal(yp_1d, data['yp_1d'])
+        np.testing.assert_array_equal(yp_2d, data['yp_2d'])
+
+    def test_nfeat(self):
+        '''Test for n_feat.'''
+
+        data = np.load('./test/testdata_nfeat.npz')
+
+        model_1d = fastl2lir.FastL2LiR()
+        model_2d = fastl2lir.FastL2LiR()
+
+        model_1d.fit(data['x_tr'], data['y_1d'], n_feat=20)
+        model_2d.fit(data['x_tr'], data['y_2d'], n_feat=20)
+
+        yp_1d = model_1d.predict(data['x_te'])
+        yp_2d = model_2d.predict(data['x_te'])
+
+        np.testing.assert_array_equal(model_1d.W, data['w_1d'])
+        np.testing.assert_array_equal(model_1d.b, data['b_1d'])
+        np.testing.assert_array_equal(model_2d.W, data['w_2d'])
+        np.testing.assert_array_equal(model_2d.b, data['b_2d'])
+
+        np.testing.assert_array_equal(yp_1d, data['yp_1d'])
+        np.testing.assert_array_equal(yp_2d, data['yp_2d'])
+
+    def test_chunk(self):
+        '''Test for chunk_size.'''
+
+        data = np.load('./test/testdata_chunk.npz')
+
+        model_2d = fastl2lir.FastL2LiR()
+
+        model_2d.fit(data['x_tr'], data['y_2d'], chunk_size=10)
+
+        yp_2d = model_2d.predict(data['x_te'])
+
+        np.testing.assert_array_equal(model_2d.W, data['w_2d'])
+        np.testing.assert_array_equal(model_2d.b, data['b_2d'])
+
+        np.testing.assert_array_equal(yp_2d, data['yp_2d'])
 
     def test_reshape(self):
+        '''Test for reshaping.'''
         Y_shape = (200, 10, 10, 5)
 
         X = np.random.rand(200, 100)
@@ -60,36 +114,6 @@ class TestFastL2LiR(unittest.TestCase):
         np.testing.assert_array_equal(pred_test.shape, Y_shape)
 
 
-    def test_chunk(self):
-        '''Chunking test.'''
-
-        with open('test/test_x.pkl', 'rb') as f:
-            X = pickle.load(f)
-
-        with open('test/test_y.pkl', 'rb') as f:
-            Y = pickle.load(f)
-
-        with open('test/test_model.pkl', 'rb') as f:
-            model_true = pickle.load(f)
-
-        with open('test/test_predicted.pkl', 'rb') as f:
-            predicted_true = pickle.load(f)
-
-        alpha = 1.0
-        n_feat = 50
-
-        model_test = fastl2lir.FastL2LiR()
-        model_test.fit(X, Y, alpha, n_feat, chunk_size=16)
-        predicted_test = model_test.predict(X)
-
-        print(np.max(np.abs(model_test.W - model_true.W)))
-        print(np.max(np.abs(model_test.b - model_true.b)))
-
-        np.testing.assert_array_almost_equal(model_test.W, model_true.W)
-        np.testing.assert_array_almost_equal(model_test.b, model_true.b)
-        np.testing.assert_array_almost_equal(predicted_test, predicted_true)
-
-
 if __name__ == "__main__":
-    test_suite = unittest.TestLoader().loadTestsFromTestCase(TestFastL2LiR)
-    unittest.TextTestRunner(verbosity=2).run(test_suite)
+    test_suite = TestLoader().loadTestsFromTestCase(TestFastL2LiR)
+    TextTestRunner(verbosity=2).run(test_suite)

@@ -1,11 +1,11 @@
-# At v2, the input dimensions with corrlations = NaN are excluded.
+'''PyFastL2LiR: Fast L2-regularized Linear Regression.'''
+
 
 import math
 from time import time
 
 import numpy as np
 from numpy.matlib import repmat
-
 from tqdm import tqdm
 
 

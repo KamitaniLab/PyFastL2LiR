@@ -2,7 +2,7 @@ from setuptools import setup
 
 
 setup(name='fastl2lir',
-      version='0.3',
+      version='0.4',
       description='Fast L2-reguralized linear regression',
       author='Kei Majima',
       author_email='brainliner-admin@atr.jp',

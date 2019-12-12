@@ -1,5 +1,8 @@
 # PyFastL2LiR: Fast L2-regularized Linear Regression
 
+[![PyPI version](https://badge.fury.io/py/fastl2lir.svg)](https://badge.fury.io/py/fastl2lir)
+[![GitHub license](https://img.shields.io/github/license/KamitaniLab/PyFastL2LiR)](https://github.com/KamitaniLab/PyFastL2LiR/blob/master/LICENSE)
+
 PyFastL2LR is fast implementation of ridge regression (regression with L2 normalization) that is developed for predicting neural netowrk unit activities from fMRI data. This method is five times faster than ordinary implementations of ridge regression, and can be used with feature selection.
 
 ## Installation

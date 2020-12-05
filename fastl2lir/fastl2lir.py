@@ -135,7 +135,6 @@ class FastL2LiR(object):
         return Y
 
     def __sub_fit(self, X, Y, alpha=0, n_feat=0, use_all_features=True, dtype=np.float64):
-        #
         if use_all_features:
             # Without feature selection
             X = np.hstack((X, np.ones((X.shape[0], 1), dtype=dtype)))

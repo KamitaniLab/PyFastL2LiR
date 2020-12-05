@@ -7,6 +7,8 @@ from time import time
 import numpy as np
 from numpy.matlib import repmat
 from tqdm import tqdm
+from copy import deepcopy
+from threadpoolctl import threadpool_limits
 
 
 class FastL2LiR(object):
@@ -134,6 +136,7 @@ class FastL2LiR(object):
         return Y
 
     def __sub_fit(self, X, Y, alpha=0, n_feat=0, use_all_features=True, dtype=np.float64):
+        #
         if use_all_features:
             # Without feature selection
             X = np.hstack((X, np.ones((X.shape[0], 1), dtype=dtype)))
@@ -141,25 +144,29 @@ class FastL2LiR(object):
             W = Wb[0:-1, :]
             b = Wb[-1, :][np.newaxis, :]  # Returning b as a 2D array
         else:
+
             # With feature selection
-            W = np.zeros((X.shape[1], Y.shape[1]), dtype=dtype)
+            W = np.zeros((Y.shape[1], X.shape[1]), dtype=dtype)
             b = np.zeros((1, Y.shape[1]), dtype=dtype)
             I = np.nonzero(np.var(X, axis=0) < 0.00000001)
             C = corrmat(X, Y, 'col')
             C[I, :] = 0.0
             X = np.hstack((X, np.ones((X.shape[0], 1))))
             W0 = np.matmul(X.T, X) + alpha * np.eye(X.shape[1])
-            W1 = np.matmul(X.T, Y)
-            for index_outputDim in tqdm(range(Y.shape[1])):
-                C0 = abs(C[:, index_outputDim])
-                I = np.argsort(C0)
-                I = I[::-1]
-                I = I[0:n_feat]
-                I = np.hstack((I, X.shape[1]-1))
-                Wb = np.linalg.solve(W0[I][:, I], W1[I][:, index_outputDim])
-                for index_selectedDim in range(n_feat):
-                    W[I[index_selectedDim], index_outputDim] = Wb[index_selectedDim]
-                b[0, index_outputDim] = Wb[-1]
+            W1 = np.matmul(Y.T, X)
+            C = deepcopy(C.T)
+            with threadpool_limits(limits=1, user_api='blas'):
+                for index_outputDim in tqdm(range(Y.shape[1])):
+                    C0 = abs(C[index_outputDim,:])
+                    I = np.argsort(C0)
+                    I = I[::-1]
+                    I = I[0:n_feat]
+                    I = np.hstack((I, X.shape[1]-1))
+                    Wb = np.linalg.solve(W0[I][:, I], W1[index_outputDim][I].reshape(-1,1))
+                    for index_selectedDim in range(n_feat):
+                        W[index_outputDim, I[index_selectedDim]] = Wb[index_selectedDim]
+                    b[0, index_outputDim] = Wb[-1]
+                W = W.T
 
         return W, b
 

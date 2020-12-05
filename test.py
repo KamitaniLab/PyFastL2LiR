@@ -71,13 +71,13 @@ class TestFastL2LiR(TestCase):
         yp_1d = model_1d.predict(data['x_te'])
         yp_2d = model_2d.predict(data['x_te'])
 
-        np.testing.assert_array_equal(model_1d.W, data['w_1d'])
-        np.testing.assert_array_equal(model_1d.b, data['b_1d'])
-        np.testing.assert_array_equal(model_2d.W, data['w_2d'])
-        np.testing.assert_array_equal(model_2d.b, data['b_2d'])
+        np.testing.assert_array_almost_equal(model_1d.W, data['w_1d'])
+        np.testing.assert_array_almost_equal(model_1d.b, data['b_1d'])
+        np.testing.assert_array_almost_equal(model_2d.W, data['w_2d'])
+        np.testing.assert_array_almost_equal(model_2d.b, data['b_2d'])
 
-        np.testing.assert_array_equal(yp_1d, data['yp_1d'])
-        np.testing.assert_array_equal(yp_2d, data['yp_2d'])
+        np.testing.assert_array_almost_equal(yp_1d, data['yp_1d'])
+        np.testing.assert_array_almost_equal(yp_2d, data['yp_2d'])
 
     def test_chunk(self):
         '''Test for chunk_size.'''

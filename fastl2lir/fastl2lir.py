@@ -7,7 +7,6 @@ from time import time
 import numpy as np
 from numpy.matlib import repmat
 from tqdm import tqdm
-from copy import deepcopy
 from threadpoolctl import threadpool_limits
 
 
@@ -154,7 +153,7 @@ class FastL2LiR(object):
             X = np.hstack((X, np.ones((X.shape[0], 1))))
             W0 = np.matmul(X.T, X) + alpha * np.eye(X.shape[1])
             W1 = np.matmul(Y.T, X)
-            C = deepcopy(C.T)
+            C = C.T
             with threadpool_limits(limits=1, user_api='blas'):
                 for index_outputDim in tqdm(range(Y.shape[1])):
                     C0 = abs(C[index_outputDim,:])

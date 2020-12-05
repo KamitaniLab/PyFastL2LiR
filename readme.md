@@ -11,6 +11,8 @@ PyFastL2LR is fast implementation of ridge regression (regression with L2 normal
 $ pip install fastl2lir
 ```
 
+When installing on Python >= 3.5, `threadpoolctl` are required.
+
 ## Usage
 
 ```

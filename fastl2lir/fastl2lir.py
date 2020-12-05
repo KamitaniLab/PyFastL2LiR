@@ -2,12 +2,18 @@
 
 
 import math
+import sys
 from time import time
 
 import numpy as np
 from numpy.matlib import repmat
 from tqdm import tqdm
-from threadpoolctl import threadpool_limits
+
+pv = sys.version_info
+python_version = float('{}.{}'.format(pv.major, pv.minor))
+
+if python_version >= 3.5:
+    from threadpoolctl import threadpool_limits
 
 
 class FastL2LiR(object):
@@ -153,7 +159,22 @@ class FastL2LiR(object):
             W0 = np.matmul(X.T, X) + alpha * np.eye(X.shape[1])
             W1 = np.matmul(Y.T, X)
             C = C.T
-            with threadpool_limits(limits=1, user_api='blas'):
+
+            # TODO: refactoring
+            if python_version >= 3.5:
+                with threadpool_limits(limits=1, user_api='blas'):
+                    for index_outputDim in tqdm(range(Y.shape[1])):
+                        C0 = abs(C[index_outputDim,:])
+                        I = np.argsort(C0)
+                        I = I[::-1]
+                        I = I[0:n_feat]
+                        I = np.hstack((I, X.shape[1]-1))
+                        Wb = np.linalg.solve(W0[I][:, I], W1[index_outputDim][I].reshape(-1,1))
+                        for index_selectedDim in range(n_feat):
+                            W[index_outputDim, I[index_selectedDim]] = Wb[index_selectedDim]
+                        b[0, index_outputDim] = Wb[-1]
+                    W = W.T
+            else:
                 for index_outputDim in tqdm(range(Y.shape[1])):
                     C0 = abs(C[index_outputDim,:])
                     I = np.argsort(C0)

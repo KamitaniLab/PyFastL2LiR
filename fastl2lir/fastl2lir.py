@@ -4,6 +4,7 @@
 import math
 import sys
 from time import time
+import warnings
 
 import numpy as np
 from numpy.matlib import repmat
@@ -73,6 +74,10 @@ class FastL2LiR(object):
             n_feat = X.shape[1]
 
         no_feature_selection = X.shape[1] == n_feat
+
+        if n_feat > X.shape[1]:
+            warnings.warn('X has less features than n_feat (X.shape[1] < n_feat). Feature selection is not applied.')
+            no_feature_selection = True
 
         # Chunking
         if chunk_size > 0:

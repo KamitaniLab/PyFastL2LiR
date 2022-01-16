@@ -160,8 +160,8 @@ class FastL2LiR(object):
             I = np.nonzero(np.var(X, axis=0) < 0.00000001)
             C = corrmat(X, Y, 'col')
             C[I, :] = 0.0
-            X = np.hstack((X, np.ones((X.shape[0], 1))))
-            W0 = np.matmul(X.T, X) + alpha * np.eye(X.shape[1])
+            X = np.hstack((X, np.ones((X.shape[0], 1), dtype=dtype)))
+            W0 = np.matmul(X.T, X) + alpha * np.eye(X.shape[1], dtype=dtype)
             W1 = np.matmul(Y.T, X)
             C = C.T
 

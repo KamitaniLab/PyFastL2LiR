@@ -174,7 +174,8 @@ class FastL2LiR(object):
                         I = I[::-1]
                         I = I[0:n_feat]
                         I = np.hstack((I, X.shape[1]-1))
-                        Wb = np.linalg.solve(W0[I][:, I], W1[index_outputDim][I].reshape(-1,1))
+                        W0_sub = (W0.ravel()[(I + (I * W0.shape[1]).reshape((-1,1))).ravel()]).reshape(I.size, I.size)
+                        Wb = np.linalg.solve(W0_sub, W1[index_outputDim][I].reshape(-1,1))
                         for index_selectedDim in range(n_feat):
                             W[index_outputDim, I[index_selectedDim]] = Wb[index_selectedDim]
                         b[0, index_outputDim] = Wb[-1]
@@ -186,7 +187,8 @@ class FastL2LiR(object):
                     I = I[::-1]
                     I = I[0:n_feat]
                     I = np.hstack((I, X.shape[1]-1))
-                    Wb = np.linalg.solve(W0[I][:, I], W1[index_outputDim][I].reshape(-1,1))
+                    W0_sub = (W0.ravel()[(I + (I * W0.shape[1]).reshape((-1,1))).ravel()]).reshape(I.size, I.size)
+                    Wb = np.linalg.solve(W0_sub, W1[index_outputDim][I].reshape(-1,1))
                     for index_selectedDim in range(n_feat):
                         W[index_outputDim, I[index_selectedDim]] = Wb[index_selectedDim]
                     b[0, index_outputDim] = Wb[-1]

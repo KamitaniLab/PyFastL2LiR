@@ -15,14 +15,16 @@ python_version = float('{}.{}'.format(pv.major, pv.minor))
 
 if python_version >= 3.5:
     from threadpoolctl import threadpool_limits
-
+print("python_version:", python_version)
 
 class FastL2LiR(object):
     '''Fast L2-regularized linear regression class.'''
 
-    def __init__(self, W=np.array([]), b=np.array([]), verbose=False):
+    def __init__(self, W=np.array([]), b=np.array([]), #S=np.array([]), 
+                 verbose=False):
         self.__W = W
         self.__b = b
+        #self.__S = S
         self.__verbose = verbose
 
     @property
@@ -41,7 +43,15 @@ class FastL2LiR(object):
     def b(self, b):
         self.__b = b
 
-    def fit(self, X, Y, alpha=1.0, n_feat=0, chunk_size=0, cache_dir='./cache', dtype=np.float64):
+    @property
+    def S(self):
+        return self.__S
+
+    @S.setter
+    def S(self, S):
+        self.__S = S
+
+    def fit(self, X, Y, alpha=1.0, n_feat=0, saveMemory = False, sample_norm = None, chunk_size=0, cache_dir='./cache', dtype=np.float64):
         '''Fit the L2-regularized linear model with the given data.
 
         Parameters
@@ -58,6 +68,9 @@ class FastL2LiR(object):
         self
             Returns an instance of self.
         '''
+        print("alpha:", alpha)
+        print("n_feat:", n_feat)
+        print("sample_norm:", sample_norm)
 
         if X.dtype != dtype: X = X.astype(dtype)
         if Y.dtype != dtype: Y = Y.astype(dtype)
@@ -88,10 +101,15 @@ class FastL2LiR(object):
 
             w_list = []
             b_list = []
+            s_list = []
             for i, chunk in enumerate(chunks):
                 start_time = time()
-
-                W, b = self.__sub_fit(X, Y[0:, chunk], alpha=alpha, n_feat=n_feat, use_all_features=no_feature_selection, dtype=dtype)
+                if saveMemory or (sample_norm is not None):
+                    print("Run saveMemory mode.")
+                    W, b, S = self.__sub_fit2(X, Y[0:, chunk], alpha=alpha, n_feat=n_feat, sample_norm = sample_norm, use_all_features=no_feature_selection, dtype=dtype)
+                    s_list.append(S)
+                else:
+                    W, b = self.__sub_fit(X, Y[0:, chunk], alpha=alpha, n_feat=n_feat, use_all_features=no_feature_selection, dtype=dtype)
                 w_list.append(W)
                 b_list.append(b)
 
@@ -100,20 +118,30 @@ class FastL2LiR(object):
 
             W = np.hstack(w_list)
             b = np.hstack(b_list)
+            if saveMemory or (sample_norm is not None):
+                S = np.hstack(s_list)
         else:
-            W, b = self.__sub_fit(X, Y, alpha=alpha, n_feat=n_feat, use_all_features=no_feature_selection, dtype=dtype)
+            if saveMemory or (sample_norm is not None):
+                print("Run saveMemory mode.")
+                W, b, S = self.__sub_fit2(X, Y, alpha=alpha, n_feat=n_feat, sample_norm = sample_norm, use_all_features=no_feature_selection, dtype=dtype)
+            else:
+                W, b = self.__sub_fit(X, Y, alpha=alpha, n_feat=n_feat, use_all_features=no_feature_selection, dtype=dtype)
 
         self.__W = W
         self.__b = b
+        if saveMemory or (sample_norm is not None):
+            self.__S = S
 
         if reshape_y:
             Y = Y.reshape(Y_shape, order='F')
             self.__W = self.__W.reshape((self.__W.shape[0],) + Y_shape[1:], order='F')
             self.__b = self.__b.reshape((1,) + Y_shape[1:], order='F')
+            if saveMemory or (sample_norm is not None):
+                self.__S = self.__S.reshape((self.__S.shape[0],) + Y_shape[1:], order='F')
 
         return self
 
-    def predict(self, X, dtype=np.float64):
+    def predict(self, X, dtype=np.float64, use_feature_selector = False, sample_norm = None):
         '''Predict with the fitted linear model.
 
         Parameters
@@ -133,12 +161,30 @@ class FastL2LiR(object):
             Y_shape = self.__W.shape
             W = self.__W.reshape(self.__W.shape[0], -1, order='F')
             b = self.__b.reshape(self.__b.shape[0], -1, order='F')
+            if use_feature_selector:
+                S = self.__S.reshape(self.__S.shape[0], -1, order='F')
         else:
             W = self.__W
             b = self.__b
+            if use_feature_selector:
+                S = self.__S
 
         # Prediction
-        Y = np.matmul(X, W) + np.matmul(np.ones((X.shape[0], 1), dtype=dtype), b)
+        if use_feature_selector:
+            print("Prediction under use_feature_selector")
+            Y = np.zeros((X.shape[0], W.shape[1]), dtype=dtype)
+            if sample_norm == "norm1":
+                print("Run norm1")
+                for si in range(W.shape[1]): # feature ごとに計算
+                    # ここでXのsample normを行う
+                    newX = X[:, S[:, si]]
+                    newW = W[S[:, si], :]
+                    newW = newW[:, si].reshape(newW.shape[0], -1)
+                    Y[:, si] = (np.matmul(newX, newW) + b[:, si]).flatten() 
+            else:
+                Y = np.matmul(X, W) + np.matmul(np.ones((X.shape[0], 1), dtype=dtype), b)
+        else:
+            Y = np.matmul(X, W) + np.matmul(np.ones((X.shape[0], 1), dtype=dtype), b)
 
         if reshape_y:
             Y = Y.reshape((Y.shape[0],) + Y_shape[1:], order='F')
@@ -153,11 +199,10 @@ class FastL2LiR(object):
             W = Wb[0:-1, :]
             b = Wb[-1, :][np.newaxis, :]  # Returning b as a 2D array
         else:
-
             # With feature selection
             W = np.zeros((Y.shape[1], X.shape[1]), dtype=dtype)
             b = np.zeros((1, Y.shape[1]), dtype=dtype)
-            I = np.nonzero(np.var(X, axis=0) < 0.00000001)
+            I = np.nonzero(np.var(X, axis=0) < 0.00000001) # ここで非ゼロのindex値を返している (not bool)
             C = corrmat(X, Y, 'col')
             C[I, :] = 0.0
             X = np.hstack((X, np.ones((X.shape[0], 1), dtype=dtype)))
@@ -195,6 +240,79 @@ class FastL2LiR(object):
                 W = W.T
 
         return W, b
+
+    def __sub_fit2(self, X, Y, alpha=0, n_feat=0, sample_norm = None, use_all_features=True, dtype=np.float64):
+        """
+        voxel selectionごとにW行列を作るタイプ
+        """
+        if use_all_features:
+            # Without feature selection                                      
+            X = np.hstack((X, np.ones((X.shape[0], 1), dtype=dtype)))
+            Wb = np.linalg.solve(np.matmul(X.T, X) + alpha * np.eye(X.shape[1], dtype=dtype), np.matmul(X.T, Y))
+            W = Wb[0:-1, :]
+            b = Wb[-1, :][np.newaxis, :]  # Returning b as a 2D array        
+            if sample_norm is not None:
+                S = np.ones((Y.shape[1], X.shape[1]), dtype=np.bool)
+        else:
+            # With feature selection
+            W = np.zeros((Y.shape[1], X.shape[1]), dtype=dtype)
+            b = np.zeros((1, Y.shape[1]), dtype=dtype)
+            if sample_norm is not None:
+                S = np.zeros((Y.shape[1], X.shape[1]), dtype=np.bool)
+            I = np.nonzero(np.var(X, axis=0) < 0.00000001) # ここで非ゼロのindex値を返している (not bool)                                      
+            C = corrmat(X, Y, 'col')
+            C[I, :] = 0.0
+            C = C.T
+
+            # TODO: refactoring     
+            if python_version >= 3.5:
+                with threadpool_limits(limits=1, user_api='blas'):
+                    for index_outputDim in tqdm(range(Y.shape[1])):                    
+                        C0 = abs(C[index_outputDim,:])
+                        I = np.argsort(C0)
+                        I = I[::-1]
+                        I = I[0:n_feat]	
+                        newX = X[:, I]# ここでvoxel selection完了 (sample_num x voxel_num)
+                        S[index_outputDim, I] = True
+                        if sample_norm == "norm1": # L1norm
+                            pass
+                            # newX = newX / np.sum(np.abs(newX), axis=1).reshape(newX.shape[0], 1) # 行 sample ごとにL1normで割る
+                        elif sample_norm == "norm2": # L2norm
+                            pass
+                            # newX = newX / np.sqrt(np.sum(np.square(newX), axis=1)).reshape(newX.shape[0], 1)# 行 sample ごとにL2normで割る
+                        elif sample_norm == "std1": # STD=1で正規化
+                            pass
+                            # newX = newX / np.sqrt(np.sum(np.square(newX), axis=1)).reshape(newX.shape[0], 1)# 行 sample ごとにL1normで割る
+                        newX = np.hstack((newX, np.ones((newX.shape[0], 1), dtype=dtype))) # 最左列にoneの列を追加                                   
+                        W0 = np.matmul(newX.T, newX) + alpha * np.eye(newX.shape[1], dtype=dtype)
+                        W1 = np.matmul(Y.T[index_outputDim], newX).reshape(-1,1)
+                        Wb = np.linalg.solve(W0, W1)
+                        for index_selectedDim in range(n_feat):
+                            W[index_outputDim, I[index_selectedDim]] = Wb[index_selectedDim]
+                        b[0, index_outputDim] = Wb[-1]                    
+                    W = W.T
+                    S = np.asarray(S.T, dtype=np.bool) # 転置してbool型に直しておく
+            else:
+                    for index_outputDim in tqdm(range(Y.shape[1])):                    
+                        C0 = abs(C[index_outputDim,:])
+                        I = np.argsort(C0)
+                        I = I[::-1]
+                        I = I[0:n_feat]	
+                        newX = X[:, I]
+                        S[index_outputDim, I] = True
+                        if sample_norm == "norm1":
+                            pass
+                        newX = np.hstack((newX, np.ones((newX.shape[0], 1), dtype=dtype))) # 最左列にoneの列を追加                                   
+                        W0 = np.matmul(newX.T, newX) + alpha * np.eye(newX.shape[1], dtype=dtype)
+                        W1 = np.matmul(Y.T[index_outputDim], newX).reshape(-1,1)
+                        Wb = np.linalg.solve(W0, W1)
+                        for index_selectedDim in range(n_feat):
+                            W[index_outputDim, I[index_selectedDim]] = Wb[index_selectedDim]
+                        b[0, index_outputDim] = Wb[-1]                    
+                    W = W.T
+
+        return W, b, S
+
 
     def __get_chunks(self, a, chunk_size):
         n_chunk = int(math.ceil(len(a) / float(chunk_size)))

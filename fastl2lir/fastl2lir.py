@@ -102,7 +102,7 @@ class FastL2LiR(object):
             warnings.warn('X has less features than n_feat (X.shape[1] < n_feat). Feature selection is not applied.')
             no_feature_selection = True
 
-        # Save selected voxel mode
+        # # Save selected voxel mode
         if not save_select_feat:
             if (spatial_norm is not None) or (select_sample is not None):
                 save_select_feat = True
@@ -179,7 +179,6 @@ class FastL2LiR(object):
         -------
         Y : array_like
         '''
-
         if X.dtype != dtype: X = X.astype(dtype)
 
         # Save selected voxel mode
@@ -281,6 +280,8 @@ class FastL2LiR(object):
         """
         spatial_normalization ありの fitting を実行
         選択された voxel index を S に保存する
+        __sub_fit_save_select_feat から training sample selection 機能を除去したもの
+        現在未使用
         """
         if use_all_features:
             # Without feature selection                                      
@@ -335,8 +336,8 @@ class FastL2LiR(object):
                                 select_sample=None, 
                                 dtype=np.float64):
         """
-        unit ごとに 処理を実行
-        training sample の選抜が可能
+        Execute fitting for each unit
+        Enables spatial normalization for selected voxels and selection of training samples.
         """
         # Prepare the matixes to save.
         W = np.zeros((Y.shape[1], X.shape[1]), dtype=dtype) # feature size x voxel size
@@ -400,24 +401,23 @@ class FastL2LiR(object):
     def __apply_spatial_normalization(self, X, spatial_norm):
         """
         Perform the spatial normalization
-
         """
         if spatial_norm is None:
             pass
-        elif spatial_norm == "norm1": # L1norm
-            X = X / np.sum(np.abs(X), axis=1).reshape(X.shape[0], 1) # 行 sample ごとにL1normで割る
-        elif spatial_norm == "norm2": # L2norm
-            X = X / np.sqrt(np.sum(np.square(X), axis=1)).reshape(X.shape[0], 1)# 行 sample ごとにL2normで割る
-        elif spatial_norm == "std1": # STD=1で正規化
+        elif spatial_norm == "norm1": # L1norm (Divide by L1norm on each sample)
+            X = X / np.sum(np.abs(X), axis=1).reshape(X.shape[0], 1)
+        elif spatial_norm == "norm2": # L2norm (Divide by L2norm on each sample)
+            X = X / np.sqrt(np.sum(np.square(X), axis=1)).reshape(X.shape[0], 1)
+        elif spatial_norm == "std1": # Normalize with STD=1
             X = (X - np.mean(X, axis=1, keepdims=True)) / np.std(X, axis=1, ddof=1, keepdims=True) + np.mean(X, axis=1, keepdims=True)
-        elif spatial_norm == "std1mean0": # STD=1で正規化し，平均もさっぴく
+        elif spatial_norm == "std1mean0": # Mean correction + Normalize with STD=1
             X = (X - np.mean(X, axis=1, keepdims=True)) / np.std(X, axis=1, ddof=1, keepdims=True)
-        elif spatial_norm == "norm1mean0": # 平均補正のL1norm
+        elif spatial_norm == "norm1mean0": # Mean correction + L1norm (Divide by L1norm on each sample)
             X = X - np.mean(X, axis=1, keepdims=True)
-            X = X / np.sum(np.abs(X), axis=1).reshape(X.shape[0], 1) # 行 sample ごとにL1normで割る
-        elif spatial_norm == "norm2mean0": # 平均補正のL2norm
+            X = X / np.sum(np.abs(X), axis=1).reshape(X.shape[0], 1) 
+        elif spatial_norm == "norm2mean0": # Mean correction + L2norm (Divide by L2norm on each sample)
             X = X - np.mean(X, axis=1, keepdims=True)
-            X = X / np.sqrt(np.sum(np.square(X), axis=1)).reshape(X.shape[0], 1)# 行 sample ごとにL2normで割る
+            X = X / np.sqrt(np.sum(np.square(X), axis=1)).reshape(X.shape[0], 1)
         else:
             raise RuntimeError("Not implemented spatial normalization method:", spatial_norm)
         return X

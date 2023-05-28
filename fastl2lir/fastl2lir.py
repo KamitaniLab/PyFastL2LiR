@@ -63,14 +63,18 @@ class FastL2LiR(object):
         n_feta: int
             The number of selected input features.
         save_select_feat: bool
-            unitごとに選択されたvoxelのbool matrixを保存
-            unitごとにfittingを行うため，実行時メモリ量を減らすことができる（計算時間は長くなり，ストレージ必要量は多くなる点に注意）
-        spatial_norm: str (norm1, norm2, std1, std1mean0, norm1mean0, norm2mean0)
-            sample単位かつ選択されたvoxelでのspatial normalizationを行う
-            unitごとに選択されたvoxelのindex matrixを保存する必要性があるため，これを選択すると自動的にsaveMemory modeになる
-        select_sample: str (nan_remove...今後増やす)
-            training sampleを選択する方法を指定する
-            これも一応saveMemoryモードにしておく．
+            Save bool matrix indicating selected voxel for each unit.
+            Since fitting is performed for each unit, the amount of memory required at runtime can be reduced.
+            (On the other hand, computation time and storage requirements increase.)
+        spatial_norm: str (None, 'norm1', 'norm2', 'std1', 'std1mean0', 'norm1mean0', or 'norm2mean0')
+            Perform spatial normalization (sample unit) on the voxel selected for each unit.
+            Selecting this automatically sets 'save_select_feat' to True
+            because it is necessary to save the index matrix of the selected voxel
+        select_sample: str ('nan_remove' or None)
+            Specify how to select training samples
+            Selecting this automatically sets 'save_select_feat' to True 
+            because this is an operation for each unit.
+            (The sample selection operation itself does not essentially need to record the selected voxel.)
             
         Returns
         -------
@@ -174,7 +178,12 @@ class FastL2LiR(object):
         Parameters
         ----------
         X : array_like
-
+        save_select_feat: bool
+            Load bool matrix indicating selected voxel for each unit.
+            If save_select_feat is True during training, it must be true during testing as well.
+        spatial_norm: str (None, 'norm1', 'norm2', 'std1', 'std1mean0', 'norm1mean0', or 'norm2mean0')
+            Perform spatial normalization (sample unit) on the voxel selected for each unit.
+            It is necessary to specify the same spatial_norm method as during training.
         Returns
         -------
         Y : array_like
@@ -234,7 +243,7 @@ class FastL2LiR(object):
             # With feature selection
             W = np.zeros((Y.shape[1], X.shape[1]), dtype=dtype)
             b = np.zeros((1, Y.shape[1]), dtype=dtype)
-            I = np.nonzero(np.var(X, axis=0) < 0.00000001) # ここで非ゼロのindex値を返している (not bool)
+            I = np.nonzero(np.var(X, axis=0) < 0.00000001) 
             C = corrmat(X, Y, 'col')
             C[I, :] = 0.0
             X = np.hstack((X, np.ones((X.shape[0], 1), dtype=dtype)))
@@ -273,70 +282,13 @@ class FastL2LiR(object):
 
         return W, b
 
-    def __sub_fit_spatial_norm(self, X, Y, alpha=0, n_feat=0, 
-                               spatial_norm=None, 
-                               use_all_features=True, 
-                               dtype=np.float64):
-        """
-        spatial_normalization ありの fitting を実行
-        選択された voxel index を S に保存する
-        __sub_fit_save_select_feat から training sample selection 機能を除去したもの
-        現在未使用
-        """
-        if use_all_features:
-            # Without feature selection                                      
-            X = np.hstack((X, np.ones((X.shape[0], 1), dtype=dtype)))
-            Wb = np.linalg.solve(np.matmul(X.T, X) + alpha * np.eye(X.shape[1], dtype=dtype), np.matmul(X.T, Y))
-            W = Wb[0:-1, :]
-            b = Wb[-1, :][np.newaxis, :]  # Returning b as a 2D array        
-            S = np.ones((Y.shape[1], X.shape[1] - 1), dtype=np.bool) # bias分の1列をマイナスしておく
-            #　W は転置不要
-            S = S.T # 転置し， <voxSize x featSize>
-        else:
-            # With feature selection
-            W = np.zeros((Y.shape[1], X.shape[1]), dtype=dtype)
-            b = np.zeros((1, Y.shape[1]), dtype=dtype)
-            S = np.zeros((Y.shape[1], X.shape[1]), dtype=np.bool)
-            I = np.nonzero(np.var(X, axis=0) < 0.00000001) # ここで非ゼロのindex値を返している (not bool)                                      
-            C = corrmat(X, Y, 'col')
-            C[I, :] = 0.0
-            C = C.T
-
-            # TODO: refactoring     
-            # if python_version >= 3.5:
-            with threadpool_limits(limits=1, user_api='blas'):
-                for index_outputDim in tqdm(range(Y.shape[1])):                    
-                    # Select voxels 
-                    C0 = abs(C[index_outputDim,:])
-                    I = np.argsort(C0)
-                    I = I[::-1]
-                    I = I[0:n_feat]	
-                    newX = X[:, I]
-                    S[index_outputDim, I] = True
-
-                    # Perform the spatial normalization
-                    newX = self.__apply_spatial_normalization(newX, spatial_norm)
-                    
-                    # Fit
-                    newX = np.hstack((newX, np.ones((newX.shape[0], 1), dtype=dtype))) # 最左列にoneの列を追加                                   
-                    W0 = np.matmul(newX.T, newX) + alpha * np.eye(newX.shape[1], dtype=dtype)
-                    W1 = np.matmul(Y.T[index_outputDim], newX).reshape(-1,1)
-                    Wb = np.linalg.solve(W0, W1)
-                    for index_selectedDim in range(n_feat):
-                        W[index_outputDim, I[index_selectedDim]] = Wb[index_selectedDim]
-                    b[0, index_outputDim] = Wb[-1]                    
-                W = W.T
-                S = np.asarray(S.T, dtype=np.bool) # 転置してbool型に直しておく
-
-        return W, b, S
-
     def __sub_fit_save_select_feat(self, X, Y, alpha=0, n_feat=0, 
                                 spatial_norm=None, 
                                 use_all_features=True, 
                                 select_sample=None, 
                                 dtype=np.float64):
         """
-        Execute fitting for each unit
+        Execute fitting for each unit.
         Enables spatial normalization for selected voxels and selection of training samples.
         """
         # Prepare the matixes to save.
@@ -344,7 +296,7 @@ class FastL2LiR(object):
         b = np.zeros((1, Y.shape[1]), dtype=dtype) # feautre size
         S = np.zeros((Y.shape[1], X.shape[1]), dtype=np.bool) # feature size x voxel size
 
-        if not python_version >= 3.5:
+        if not python_version >= 3.5: 
             raise RuntimeError("Python version requires 3.5 or more.")
         
         with threadpool_limits(limits=1, user_api='blas'):
@@ -352,7 +304,7 @@ class FastL2LiR(object):
                 # Select training samples
                 if select_sample is None:
                     pass
-                elif select_sample == "remove_nan": # unit が nan 値の sample を削除
+                elif select_sample == "remove_nan": # Delete sample with nan value in unit
                     selector = np.logical_not(np.isnan(Y[:, index_outputDim].flatten())) 
                 else:
                     raise RuntimeError("Not implemented selection method:", select_sample)
@@ -373,7 +325,7 @@ class FastL2LiR(object):
                 newX = self.__apply_spatial_normalization(newX, spatial_norm)
 
                 # Fit
-                newX = np.hstack((newX, np.ones((newX.shape[0], 1), dtype=dtype))) # 最左列にoneの列を追加                                   
+                newX = np.hstack((newX, np.ones((newX.shape[0], 1), dtype=dtype))) # Add one column to rightmost column                                   
                 W0 = np.matmul(newX.T, newX) + alpha * np.eye(newX.shape[1], dtype=dtype)
                 W1 = np.matmul(selY.ravel(), newX).reshape(-1,1)
                 Wb = np.linalg.solve(W0, W1)
@@ -381,10 +333,9 @@ class FastL2LiR(object):
                     W[index_outputDim, I[index_selectedDim]] = Wb[index_selectedDim]
                 b[0, index_outputDim] = Wb[-1]                    
             W = W.T
-            S = np.asarray(S.T, dtype=np.bool) # 転置してbool型に直しておく
+            S = np.asarray(S.T, dtype=np.bool) # Transpose and convert to bool type
 
         return W, b, S
-
 
     def __get_chunks(self, a, chunk_size):
         n_chunk = int(math.ceil(len(a) / float(chunk_size)))

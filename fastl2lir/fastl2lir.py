@@ -51,7 +51,7 @@ class FastL2LiR(object):
     def S(self, S):
         self.__S = S
 
-    def fit(self, X, Y, alpha=1.0, n_feat=0, saveMemory = False, sample_norm = None, chunk_size=0, cache_dir='./cache', dtype=np.float64):
+    def fit(self, X, Y, alpha=1.0, n_feat=0, save_select_feat=False, spatial_norm=None, select_sample=None, chunk_size=0, cache_dir='./cache', dtype=np.float64):
         '''Fit the L2-regularized linear model with the given data.
 
         Parameters
@@ -62,7 +62,16 @@ class FastL2LiR(object):
             Regularization parameter (coefficient for L2-norm).
         n_feta: int
             The number of selected input features.
-
+        save_select_feat: bool
+            unitごとに選択されたvoxelのbool matrixを保存
+            unitごとにfittingを行うため，実行時メモリ量を減らすことができる（計算時間は長くなり，ストレージ必要量は多くなる点に注意）
+        spatial_norm: str (norm1, norm2, std1, std1mean0, norm1mean0, norm2mean0)
+            sample単位かつ選択されたvoxelでのspatial normalizationを行う
+            unitごとに選択されたvoxelのindex matrixを保存する必要性があるため，これを選択すると自動的にsaveMemory modeになる
+        select_sample: str (nan_remove...今後増やす)
+            training sampleを選択する方法を指定する
+            これも一応saveMemoryモードにしておく．
+            
         Returns
         -------
         self
@@ -70,7 +79,8 @@ class FastL2LiR(object):
         '''
         print("alpha:", alpha)
         print("n_feat:", n_feat)
-        print("sample_norm:", sample_norm)
+        print("spatial_norm:", spatial_norm)
+        print("select_sample:", select_sample)
 
         if X.dtype != dtype: X = X.astype(dtype)
         if Y.dtype != dtype: Y = Y.astype(dtype)
@@ -92,6 +102,11 @@ class FastL2LiR(object):
             warnings.warn('X has less features than n_feat (X.shape[1] < n_feat). Feature selection is not applied.')
             no_feature_selection = True
 
+        # Save selected voxel mode
+        if not save_select_feat:
+            if (spatial_norm is not None) or (select_sample is not None):
+                save_select_feat = True
+
         # Chunking
         if chunk_size > 0:
             chunks = self.__get_chunks(range(Y.shape[1]), chunk_size)
@@ -104,12 +119,18 @@ class FastL2LiR(object):
             s_list = []
             for i, chunk in enumerate(chunks):
                 start_time = time()
-                if saveMemory or (sample_norm is not None):
-                    print("Run saveMemory mode.")
-                    W, b, S = self.__sub_fit2(X, Y[0:, chunk], alpha=alpha, n_feat=n_feat, sample_norm = sample_norm, use_all_features=no_feature_selection, dtype=dtype)
+                if save_select_feat:
+                    print("Run sample selection mode.")
+                    W, b, S = self.__sub_fit_save_select_feat(X, Y[0:, chunk], alpha=alpha, n_feat=n_feat, 
+                                                           spatial_norm=spatial_norm, 
+                                                           use_all_features=no_feature_selection, 
+                                                           select_sample=select_sample, 
+                                                           dtype=dtype)
                     s_list.append(S)
                 else:
-                    W, b = self.__sub_fit(X, Y[0:, chunk], alpha=alpha, n_feat=n_feat, use_all_features=no_feature_selection, dtype=dtype)
+                    W, b = self.__sub_fit(X, Y[0:, chunk], alpha=alpha, n_feat=n_feat, 
+                                          use_all_features=no_feature_selection, 
+                                          dtype=dtype)
                 w_list.append(W)
                 b_list.append(b)
 
@@ -118,30 +139,36 @@ class FastL2LiR(object):
 
             W = np.hstack(w_list)
             b = np.hstack(b_list)
-            if saveMemory or (sample_norm is not None):
+            if save_select_feat:
                 S = np.hstack(s_list)
         else:
-            if saveMemory or (sample_norm is not None):
-                print("Run saveMemory mode.")
-                W, b, S = self.__sub_fit2(X, Y, alpha=alpha, n_feat=n_feat, sample_norm = sample_norm, use_all_features=no_feature_selection, dtype=dtype)
+            if save_select_feat:
+                print("Run sample selection mode.")
+                W, b, S = self.__sub_fit_save_select_feat(X, Y, alpha=alpha, n_feat=n_feat, 
+                                                       spatial_norm=spatial_norm, 
+                                                       use_all_features=no_feature_selection, 
+                                                       select_sample=select_sample, 
+                                                       dtype=dtype)
             else:
-                W, b = self.__sub_fit(X, Y, alpha=alpha, n_feat=n_feat, use_all_features=no_feature_selection, dtype=dtype)
+                W, b = self.__sub_fit(X, Y, alpha=alpha, n_feat=n_feat, 
+                                      use_all_features=no_feature_selection, 
+                                      dtype=dtype)
 
         self.__W = W
         self.__b = b
-        if saveMemory or (sample_norm is not None):
+        if save_select_feat:
             self.__S = S
 
         if reshape_y:
             Y = Y.reshape(Y_shape, order='F')
             self.__W = self.__W.reshape((self.__W.shape[0],) + Y_shape[1:], order='F')
             self.__b = self.__b.reshape((1,) + Y_shape[1:], order='F')
-            if saveMemory or (sample_norm is not None):
+            if save_select_feat:
                 self.__S = self.__S.reshape((self.__S.shape[0],) + Y_shape[1:], order='F')
 
         return self
 
-    def predict(self, X, dtype=np.float64, use_feature_selector = False, sample_norm = None):
+    def predict(self, X, dtype=np.float64, save_select_feat=False, spatial_norm=None):
         '''Predict with the fitted linear model.
 
         Parameters
@@ -155,47 +182,39 @@ class FastL2LiR(object):
 
         if X.dtype != dtype: X = X.astype(dtype)
 
+        # Save selected voxel mode
+        if not save_select_feat:
+            if spatial_norm is not None:
+                save_select_feat = True
+
         # Reshape
         reshape_y = self.__W.ndim > 2
         if reshape_y:
             Y_shape = self.__W.shape
             W = self.__W.reshape(self.__W.shape[0], -1, order='F')
             b = self.__b.reshape(self.__b.shape[0], -1, order='F')
-            if use_feature_selector:
+            if save_select_feat:
                 S = self.__S.reshape(self.__S.shape[0], -1, order='F')
         else:
             W = self.__W
             b = self.__b
-            if use_feature_selector:
+            if save_select_feat:
                 S = self.__S
 
         # Prediction
-        if use_feature_selector:
-            print("Prediction under use_feature_selector")
+        if save_select_feat:
+            print("Prediction under save_select_feat")
             Y = np.zeros((X.shape[0], W.shape[1]), dtype=dtype)
             for si in range(W.shape[1]): # Loop for feature
                 selected_voxel = S[:, si]
-                selected_voxel_size = np.sum(selected_voxel) # boolean
-                newX = X[:, selected_voxel]
+                newX = X[:, selected_voxel] # extract selected features
+
                 # Perform the sample normalization.
-                if sample_norm == "norm1": # L1norm
-                    newX = newX / np.sum(np.abs(newX), axis=1).reshape(newX.shape[0], 1) # 行 sample ごとにL1normで正規化
-                elif sample_norm == "norm2": # L2norm
-                    newX = newX / np.sqrt(np.sum(np.square(newX), axis=1)).reshape(newX.shape[0], 1)# 行 sample ごとにL2normで正規化
-                elif sample_norm == "std1": # STD=1で正規化
-                    newX = (newX - np.mean(newX, axis=1, keepdims=True)) / np.std(newX, axis=1, ddof=1, keepdims=True) + np.mean(newX, axis=1, keepdims=True)
-                elif sample_norm == "std1mean0": # STD=1で正規化し，平均もさっぴく
-                    newX = (newX - np.mean(newX, axis=1, keepdims=True)) / np.std(newX, axis=1, ddof=1, keepdims=True)
-                elif sample_norm == "norm1mean0": # 平均補正のL1norm
-                    newX = newX - np.mean(newX, axis=1, keepdims=True)
-                    newX = newX / np.sum(np.abs(newX), axis=1).reshape(newX.shape[0], 1) # 行 sample ごとにL1normで割る
-                elif sample_norm == "norm2mean0": # 平均補正のL2norm
-                    newX = newX - np.mean(newX, axis=1, keepdims=True)
-                    newX = newX / np.sqrt(np.sum(np.square(newX), axis=1)).reshape(newX.shape[0], 1)# 行 sample ごとにL2normで割る
+                newX = self.__apply_spatial_normalization(newX, spatial_norm)
+
+                # Predict
                 newW = W[:, si].reshape(-1, 1)
-                newW = newW[selected_voxel, :].reshape(-1, 1)
-#                 newW = W[selected_voxel, :]
-#                 newW = newW[:, si].reshape(newW.shape[0], -1)
+                newW = newW[selected_voxel, :].reshape(-1, 1) # extract selected features
                 Y[:, si] = (np.matmul(newX, newW) + b[:, si]).flatten() 
         else:
             Y = np.matmul(X, W) + np.matmul(np.ones((X.shape[0], 1), dtype=dtype), b)
@@ -255,9 +274,13 @@ class FastL2LiR(object):
 
         return W, b
 
-    def __sub_fit2(self, X, Y, alpha=0, n_feat=0, sample_norm = None, use_all_features=True, dtype=np.float64):
+    def __sub_fit_spatial_norm(self, X, Y, alpha=0, n_feat=0, 
+                               spatial_norm=None, 
+                               use_all_features=True, 
+                               dtype=np.float64):
         """
-        voxel selectionごとにW行列を作るタイプ
+        spatial_normalization ありの fitting を実行
+        選択された voxel index を S に保存する
         """
         if use_all_features:
             # Without feature selection                                      
@@ -279,69 +302,85 @@ class FastL2LiR(object):
             C = C.T
 
             # TODO: refactoring     
-            if python_version >= 3.5:
-                with threadpool_limits(limits=1, user_api='blas'):
-                    for index_outputDim in tqdm(range(Y.shape[1])):                    
-                        C0 = abs(C[index_outputDim,:])
-                        I = np.argsort(C0)
-                        I = I[::-1]
-                        I = I[0:n_feat]	
-                        newX = X[:, I]# ここでvoxel selection完了 (sample_num x voxel_num)
-                        S[index_outputDim, I] = True
-                        if sample_norm == "norm1": # L1norm
-                            newX = newX / np.sum(np.abs(newX), axis=1).reshape(newX.shape[0], 1) # 行 sample ごとにL1normで割る
-                        elif sample_norm == "norm2": # L2norm
-                            newX = newX / np.sqrt(np.sum(np.square(newX), axis=1)).reshape(newX.shape[0], 1)# 行 sample ごとにL2normで割る
-                        elif sample_norm == "std1": # STD=1で正規化
-                            newX = (newX - np.mean(newX, axis=1, keepdims=True)) / np.std(newX, axis=1, ddof=1, keepdims=True) + np.mean(newX, axis=1, keepdims=True)
-                        elif sample_norm == "std1mean0": # STD=1で正規化し，平均もさっぴく
-                            newX = (newX - np.mean(newX, axis=1, keepdims=True)) / np.std(newX, axis=1, ddof=1, keepdims=True)
-                        elif sample_norm == "norm1mean0": # 平均補正のL1norm
-                            newX = newX - np.mean(newX, axis=1, keepdims=True)
-                            newX = newX / np.sum(np.abs(newX), axis=1).reshape(newX.shape[0], 1) # 行 sample ごとにL1normで割る
-                        elif sample_norm == "norm2mean0": # 平均補正のL2norm
-                            newX = newX - np.mean(newX, axis=1, keepdims=True)
-                            newX = newX / np.sqrt(np.sum(np.square(newX), axis=1)).reshape(newX.shape[0], 1)# 行 sample ごとにL2normで割る
-                        newX = np.hstack((newX, np.ones((newX.shape[0], 1), dtype=dtype))) # 最左列にoneの列を追加                                   
-                        W0 = np.matmul(newX.T, newX) + alpha * np.eye(newX.shape[1], dtype=dtype)
-                        W1 = np.matmul(Y.T[index_outputDim], newX).reshape(-1,1)
-                        Wb = np.linalg.solve(W0, W1)
-                        for index_selectedDim in range(n_feat):
-                            W[index_outputDim, I[index_selectedDim]] = Wb[index_selectedDim]
-                        b[0, index_outputDim] = Wb[-1]                    
-                    W = W.T
-                    S = np.asarray(S.T, dtype=np.bool) # 転置してbool型に直しておく
-            else:
-                    for index_outputDim in tqdm(range(Y.shape[1])):                    
-                        C0 = abs(C[index_outputDim,:])
-                        I = np.argsort(C0)
-                        I = I[::-1]
-                        I = I[0:n_feat]	
-                        newX = X[:, I]
-                        S[index_outputDim, I] = True
-                        if sample_norm == "norm1": # L1norm
-                            newX = newX / np.sum(np.abs(newX), axis=1).reshape(newX.shape[0], 1) # 行 sample ごとにL1normで割る
-                        elif sample_norm == "norm2": # L2norm
-                            newX = newX / np.sqrt(np.sum(np.square(newX), axis=1)).reshape(newX.shape[0], 1)# 行 sample ごとにL2normで割る
-                        elif sample_norm == "std1": # STD=1で正規化
-                            newX = (newX - np.mean(newX, axis=1, keepdims=True)) / np.std(newX, axis=1, ddof=1, keepdims=True) + np.mean(newX, axis=1, keepdims=True)
-                        elif sample_norm == "std1mean0": # STD=1で正規化し，平均もさっぴく
-                            newX = (newX - np.mean(newX, axis=1, keepdims=True)) / np.std(newX, axis=1, ddof=1, keepdims=True)
-                        elif sample_norm == "norm1mean0": # 平均補正のL1norm
-                            newX = newX - np.mean(newX, axis=1, keepdims=True)
-                            newX = newX / np.sum(np.abs(newX), axis=1).reshape(newX.shape[0], 1) # 行 sample ごとにL1normで割る
-                        elif sample_norm == "norm2mean0": # 平均補正のL2norm
-                            newX = newX - np.mean(newX, axis=1, keepdims=True)
-                            newX = newX / np.sqrt(np.sum(np.square(newX), axis=1)).reshape(newX.shape[0], 1)# 行 sample ごとにL2normで割る
-                        newX = np.hstack((newX, np.ones((newX.shape[0], 1), dtype=dtype))) # 最左列にoneの列を追加                                   
-                        W0 = np.matmul(newX.T, newX) + alpha * np.eye(newX.shape[1], dtype=dtype)
-                        W1 = np.matmul(Y.T[index_outputDim], newX).reshape(-1,1)
-                        Wb = np.linalg.solve(W0, W1)
-                        for index_selectedDim in range(n_feat):
-                            W[index_outputDim, I[index_selectedDim]] = Wb[index_selectedDim]
-                        b[0, index_outputDim] = Wb[-1]                    
-                    W = W.T
-                    S = np.asarray(S.T, dtype=np.bool) # 転置してbool型に直しておく
+            # if python_version >= 3.5:
+            with threadpool_limits(limits=1, user_api='blas'):
+                for index_outputDim in tqdm(range(Y.shape[1])):                    
+                    # Select voxels 
+                    C0 = abs(C[index_outputDim,:])
+                    I = np.argsort(C0)
+                    I = I[::-1]
+                    I = I[0:n_feat]	
+                    newX = X[:, I]
+                    S[index_outputDim, I] = True
+
+                    # Perform the spatial normalization
+                    newX = self.__apply_spatial_normalization(newX, spatial_norm)
+                    
+                    # Fit
+                    newX = np.hstack((newX, np.ones((newX.shape[0], 1), dtype=dtype))) # 最左列にoneの列を追加                                   
+                    W0 = np.matmul(newX.T, newX) + alpha * np.eye(newX.shape[1], dtype=dtype)
+                    W1 = np.matmul(Y.T[index_outputDim], newX).reshape(-1,1)
+                    Wb = np.linalg.solve(W0, W1)
+                    for index_selectedDim in range(n_feat):
+                        W[index_outputDim, I[index_selectedDim]] = Wb[index_selectedDim]
+                    b[0, index_outputDim] = Wb[-1]                    
+                W = W.T
+                S = np.asarray(S.T, dtype=np.bool) # 転置してbool型に直しておく
+
+        return W, b, S
+
+    def __sub_fit_save_select_feat(self, X, Y, alpha=0, n_feat=0, 
+                                spatial_norm=None, 
+                                use_all_features=True, 
+                                select_sample=None, 
+                                dtype=np.float64):
+        """
+        unit ごとに 処理を実行
+        training sample の選抜が可能
+        """
+        # Prepare the matixes to save.
+        W = np.zeros((Y.shape[1], X.shape[1]), dtype=dtype) # feature size x voxel size
+        b = np.zeros((1, Y.shape[1]), dtype=dtype) # feautre size
+        S = np.zeros((Y.shape[1], X.shape[1]), dtype=np.bool) # feature size x voxel size
+
+        if not python_version >= 3.5:
+            raise RuntimeError("Python version requires 3.5 or more.")
+        
+        with threadpool_limits(limits=1, user_api='blas'):
+            for index_outputDim in tqdm(range(Y.shape[1])):
+                # Select training samples
+                if select_sample is None:
+                    pass
+                elif select_sample == "remove_nan": # unit が nan 値の sample を削除
+                    selector = np.logical_not(np.isnan(Y[:, index_outputDim].flatten())) 
+                else:
+                    raise RuntimeError("Not implemented selection method:", select_sample)
+                selX = X[selector, :]
+                selY = Y[selector, index_outputDim].reshape(-1, 1)
+
+                # Select voxels 
+                if use_all_features:
+                    I = np.arange(selX.shape[1])
+                else:
+                    C0 = abs(corrmat(selX, selY, 'col')).ravel()
+                    I = np.argsort(C0 * -1) 
+                    I = I[0:n_feat]                
+                newX = selX[:, I] # sample_num x voxel_num
+                S[index_outputDim, I] = True
+
+                # Perform the spatial normalization
+                newX = self.__apply_spatial_normalization(newX, spatial_norm)
+
+                # Fit
+                newX = np.hstack((newX, np.ones((newX.shape[0], 1), dtype=dtype))) # 最左列にoneの列を追加                                   
+                W0 = np.matmul(newX.T, newX) + alpha * np.eye(newX.shape[1], dtype=dtype)
+                W1 = np.matmul(selY.ravel(), newX).reshape(-1,1)
+                Wb = np.linalg.solve(W0, W1)
+                for index_selectedDim in range(n_feat):
+                    W[index_outputDim, I[index_selectedDim]] = Wb[index_selectedDim]
+                b[0, index_outputDim] = Wb[-1]                    
+            W = W.T
+            S = np.asarray(S.T, dtype=np.bool) # 転置してbool型に直しておく
 
         return W, b, S
 
@@ -358,6 +397,30 @@ class FastL2LiR(object):
 
         return chunks
 
+    def __apply_spatial_normalization(self, X, spatial_norm):
+        """
+        Perform the spatial normalization
+
+        """
+        if spatial_norm is None:
+            pass
+        elif spatial_norm == "norm1": # L1norm
+            X = X / np.sum(np.abs(X), axis=1).reshape(X.shape[0], 1) # 行 sample ごとにL1normで割る
+        elif spatial_norm == "norm2": # L2norm
+            X = X / np.sqrt(np.sum(np.square(X), axis=1)).reshape(X.shape[0], 1)# 行 sample ごとにL2normで割る
+        elif spatial_norm == "std1": # STD=1で正規化
+            X = (X - np.mean(X, axis=1, keepdims=True)) / np.std(X, axis=1, ddof=1, keepdims=True) + np.mean(X, axis=1, keepdims=True)
+        elif spatial_norm == "std1mean0": # STD=1で正規化し，平均もさっぴく
+            X = (X - np.mean(X, axis=1, keepdims=True)) / np.std(X, axis=1, ddof=1, keepdims=True)
+        elif spatial_norm == "norm1mean0": # 平均補正のL1norm
+            X = X - np.mean(X, axis=1, keepdims=True)
+            X = X / np.sum(np.abs(X), axis=1).reshape(X.shape[0], 1) # 行 sample ごとにL1normで割る
+        elif spatial_norm == "norm2mean0": # 平均補正のL2norm
+            X = X - np.mean(X, axis=1, keepdims=True)
+            X = X / np.sqrt(np.sum(np.square(X), axis=1)).reshape(X.shape[0], 1)# 行 sample ごとにL2normで割る
+        else:
+            raise RuntimeError("Not implemented spatial normalization method:", spatial_norm)
+        return X
 
 # Functions ##################################################################
 

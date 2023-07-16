@@ -15,16 +15,14 @@ python_version = float('{}.{}'.format(pv.major, pv.minor))
 
 if python_version >= 3.5:
     from threadpoolctl import threadpool_limits
-print("python_version:", python_version)
+
 
 class FastL2LiR(object):
     '''Fast L2-regularized linear regression class.'''
 
-    def __init__(self, W=np.array([]), b=np.array([]), #S=np.array([]), 
-                 verbose=False):
+    def __init__(self, W=np.array([]), b=np.array([]), verbose=False):
         self.__W = W
         self.__b = b
-        #self.__S = S
         self.__verbose = verbose
 
     @property
@@ -81,10 +79,6 @@ class FastL2LiR(object):
         self
             Returns an instance of self.
         '''
-        print("alpha:", alpha)
-        print("n_feat:", n_feat)
-        print("spatial_norm:", spatial_norm)
-        print("select_sample:", select_sample)
 
         if X.dtype != dtype: X = X.astype(dtype)
         if Y.dtype != dtype: Y = Y.astype(dtype)
@@ -124,7 +118,6 @@ class FastL2LiR(object):
             for i, chunk in enumerate(chunks):
                 start_time = time()
                 if save_select_feat:
-                    print("Run sample selection mode.")
                     W, b, S = self.__sub_fit_save_select_feat(X, Y[0:, chunk], alpha=alpha, n_feat=n_feat, 
                                                            spatial_norm=spatial_norm, 
                                                            use_all_features=no_feature_selection, 
@@ -147,7 +140,6 @@ class FastL2LiR(object):
                 S = np.hstack(s_list)
         else:
             if save_select_feat:
-                print("Run sample selection mode.")
                 W, b, S = self.__sub_fit_save_select_feat(X, Y, alpha=alpha, n_feat=n_feat, 
                                                        spatial_norm=spatial_norm, 
                                                        use_all_features=no_feature_selection, 

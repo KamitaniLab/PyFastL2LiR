@@ -17,6 +17,10 @@ dependencies = [
     "threadpoolctl>=2.1.0 ; python_full_version >= '3.5'",
     "tqdm>=4.64.1",
 ]
+[project.urls]
+Homepage = "https://github.com/KamitaniLab/PyFastL2LiR"
+Repository = "https://github.com/KamitaniLab/PyFastL2LiR"
+"Bug Tracker" = "https://github.com/KamitaniLab/PyFastL2LiR/issues"
 
 [build-system]
 requires = ["uv_build>=0.8.22,<0.9.0"]

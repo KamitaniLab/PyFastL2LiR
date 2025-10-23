@@ -10,9 +10,8 @@ import numpy as np
 from tqdm import tqdm
 
 pv = sys.version_info
-python_version = float('{}.{}'.format(pv.major, pv.minor))
 
-if python_version >= 3.5:
+if pv.major > 3 or (pv.major == 3 and pv.minor >= 5):
     from threadpoolctl import threadpool_limits
 
 
@@ -242,7 +241,15 @@ class FastL2LiR(object):
         if use_all_features:
             # Without feature selection
             X = np.hstack((X, np.ones((X.shape[0], 1), dtype=dtype)))
-            Wb = np.linalg.solve(np.matmul(X.T, X) + alpha * np.eye(X.shape[1], dtype=dtype), np.matmul(X.T, Y))
+            
+            # Choose the more efficient method based on matrix dimensions
+            if X.shape[0] > X.shape[1]:
+                # Use dual form for tall matrices (more samples than features)
+                Wb = np.matmul(X.T, np.linalg.solve(np.matmul(X, X.T) + alpha * np.eye(X.shape[0], dtype=dtype), Y))
+            else:
+                # Use primal form for wide matrices (more features than samples)
+                Wb = np.linalg.solve(np.matmul(X.T, X) + alpha * np.eye(X.shape[1], dtype=dtype), np.matmul(X.T, Y))
+            
             W = Wb[0:-1, :]
             b = Wb[-1, :][np.newaxis, :]  # Returning b as a 2D array
         else:
@@ -258,7 +265,7 @@ class FastL2LiR(object):
             C = C.T
 
             # TODO: refactoring
-            if python_version >= 3.5:
+            if pv.major > 3 or (pv.major == 3 and pv.minor >= 5):
                 with threadpool_limits(limits=1, user_api='blas'):
                     for index_outputDim in tqdm(range(Y.shape[1])):
                         C0 = abs(C[index_outputDim,:])
@@ -305,7 +312,7 @@ class FastL2LiR(object):
         b = np.zeros((1, Y.shape[1]), dtype=dtype)             # feautre size
         S = np.zeros((Y.shape[1], X.shape[1]), dtype=np.bool)  # feature size x voxel size
 
-        if not python_version >= 3.5:
+        if not (pv.major > 3 or (pv.major == 3 and pv.minor >= 5)):
             raise RuntimeError('Python version requires 3.5 or more.')
 
         with threadpool_limits(limits=1, user_api='blas'):

@@ -16,7 +16,7 @@ class TestFastL2LiR(TestCase):
     def test_basic(self):
         '''Basic Test.'''
 
-        data = np.load('./test/testdata_basic.npz')
+        data = np.load('./tests/testdata_basic.npz')
 
         model_1d = fastl2lir.FastL2LiR()
         model_2d = fastl2lir.FastL2LiR()
@@ -38,7 +38,7 @@ class TestFastL2LiR(TestCase):
     def test_alpha(self):
         '''Test for alpha.'''
 
-        data = np.load('./test/testdata_alpha01.npz')
+        data = np.load('./tests/testdata_alpha01.npz')
 
         model_1d = fastl2lir.FastL2LiR()
         model_2d = fastl2lir.FastL2LiR()
@@ -60,7 +60,7 @@ class TestFastL2LiR(TestCase):
     def test_nfeat(self):
         '''Test for n_feat.'''
 
-        data = np.load('./test/testdata_nfeat.npz')
+        data = np.load('./tests/testdata_nfeat.npz')
 
         model_1d = fastl2lir.FastL2LiR()
         model_2d = fastl2lir.FastL2LiR()
@@ -82,7 +82,7 @@ class TestFastL2LiR(TestCase):
     def test_nfeat_no_feature_selection(self):
         '''Test for n_feat when X.shape[1] < n_feat.'''
 
-        data = np.load('./test/testdata_basic.npz')
+        data = np.load('./tests/testdata_basic.npz')
 
         model_1d = fastl2lir.FastL2LiR()
         model_2d = fastl2lir.FastL2LiR()
@@ -104,7 +104,7 @@ class TestFastL2LiR(TestCase):
     def test_chunk(self):
         '''Test for chunk_size.'''
 
-        data = np.load('./test/testdata_chunk.npz')
+        data = np.load('./tests/testdata_chunk.npz')
 
         model_2d = fastl2lir.FastL2LiR()
 

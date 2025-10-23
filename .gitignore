@@ -10,3 +10,6 @@ dist
 
 .coverage
 htmlcov/
+
+.python-version
+uv.lock

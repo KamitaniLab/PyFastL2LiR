@@ -80,9 +80,31 @@ class TestFastL2LiR(TestCase):
         np.testing.assert_array_almost_equal(yp_2d, data['yp_2d'])
 
     def test_nfeat_no_feature_selection(self):
-        '''Test for n_feat when X.shape[1] < n_feat.'''
+        '''Test for n_feat when X.shape[1] < n_feat (more samples than features).'''
 
         data = np.load('./test/testdata_basic.npz')
+
+        model_1d = fastl2lir.FastL2LiR()
+        model_2d = fastl2lir.FastL2LiR()
+
+        model_1d.fit(data['x_tr'], data['y_1d'], n_feat=500)
+        model_2d.fit(data['x_tr'], data['y_2d'], n_feat=500)
+
+        yp_1d = model_1d.predict(data['x_te'])
+        yp_2d = model_2d.predict(data['x_te'])
+
+        np.testing.assert_array_almost_equal(model_1d.W, data['w_1d'])
+        np.testing.assert_array_almost_equal(model_1d.b, data['b_1d'])
+        np.testing.assert_array_almost_equal(model_2d.W, data['w_2d'])
+        np.testing.assert_array_almost_equal(model_2d.b, data['b_2d'])
+
+        np.testing.assert_array_almost_equal(yp_1d, data['yp_1d'])
+        np.testing.assert_array_almost_equal(yp_2d, data['yp_2d'])
+
+    def test_nfeat_no_feature_selection_wide(self):
+        '''Test for n_feat when X.shape[0] < X.shape[1] (more features than samples).'''
+
+        data = np.load('./test/testdata_wide.npz')
 
         model_1d = fastl2lir.FastL2LiR()
         model_2d = fastl2lir.FastL2LiR()

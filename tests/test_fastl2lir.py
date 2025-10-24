@@ -104,7 +104,7 @@ class TestFastL2LiR(TestCase):
     def test_nfeat_no_feature_selection_wide(self):
         '''Test for n_feat when X.shape[1] < n_feat (more features than samples).'''
 
-        data = np.load('./test/testdata_wide.npz')
+        data = np.load('./tests/testdata_wide.npz')
 
         model_1d = fastl2lir.FastL2LiR()
         model_2d = fastl2lir.FastL2LiR()

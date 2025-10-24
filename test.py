@@ -102,7 +102,7 @@ class TestFastL2LiR(TestCase):
         np.testing.assert_array_almost_equal(yp_2d, data['yp_2d'])
 
     def test_nfeat_no_feature_selection_wide(self):
-        '''Test for n_feat when X.shape[0] < X.shape[1] (more features than samples).'''
+        '''Test for n_feat when X.shape[1] < n_feat (more features than samples).'''
 
         data = np.load('./test/testdata_wide.npz')
 

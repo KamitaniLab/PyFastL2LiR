@@ -244,11 +244,11 @@ class FastL2LiR(object):
             
             # Choose the more efficient method based on matrix dimensions
             if X.shape[0] > X.shape[1]:
-                # Use dual form for tall matrices (more samples than features)
-                Wb = np.matmul(X.T, np.linalg.solve(np.matmul(X, X.T) + alpha * np.eye(X.shape[0], dtype=dtype), Y))
-            else:
-                # Use primal form for wide matrices (more features than samples)
+                # Use primal form for tall matrices (more samples than features)
                 Wb = np.linalg.solve(np.matmul(X.T, X) + alpha * np.eye(X.shape[1], dtype=dtype), np.matmul(X.T, Y))
+            else:
+                # Use dual form for wide matrices (more features than samples)
+                Wb = np.matmul(X.T, np.linalg.solve(np.matmul(X, X.T) + alpha * np.eye(X.shape[0], dtype=dtype), Y))
             
             W = Wb[0:-1, :]
             b = Wb[-1, :][np.newaxis, :]  # Returning b as a 2D array

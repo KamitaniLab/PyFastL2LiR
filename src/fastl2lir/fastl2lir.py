@@ -22,7 +22,10 @@ class FastL2LiR(object):
         # Choose linear solver once to avoid branching at call sites
         if solver == 'scipy':
             def _solve(a, b):
-                return sp_linalg.solve(a, b, assume_a='sym', check_finite=False)
+                try:
+                    return sp_linalg.solve(a, b, assume_a='pos', check_finite=False)
+                except sp_linalg.LinAlgError:
+                    return sp_linalg.solve(a, b, assume_a='sym', check_finite=False)
         elif solver == 'numpy':
             def _solve(a, b):
                 return np.linalg.solve(a, b)

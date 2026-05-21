@@ -1,6 +1,6 @@
 [project]
 name = "fastl2lir"
-version = "0.10"
+version = "0.11"
 description = "Fast L2-reguralized linear regression"
 readme = "README.md"
 authors = [

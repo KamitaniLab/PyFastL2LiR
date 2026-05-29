@@ -274,9 +274,8 @@ class FastL2LiR(object):
                         I = I[0:n_feat]
                         I = np.hstack((I, X.shape[1]-1))
                         W0_sub = (W0.ravel()[(I + (I * W0.shape[1]).reshape((-1, 1))).ravel()]).reshape(I.size, I.size)
-                        Wb = np.linalg.solve(W0_sub, W1[index_outputDim][I].reshape(-1, 1))
-                        for index_selectedDim in range(n_feat):
-                            W[index_outputDim, I[index_selectedDim]] = Wb[index_selectedDim]
+                        Wb = np.linalg.solve(W0_sub, W1[index_outputDim, I])
+                        W[index_outputDim, I[:-1]] = Wb[:-1]
                         b[0, index_outputDim] = Wb[-1]
                     W = W.T
             else:
@@ -287,9 +286,8 @@ class FastL2LiR(object):
                     I = I[0:n_feat]
                     I = np.hstack((I, X.shape[1]-1))
                     W0_sub = (W0.ravel()[(I + (I * W0.shape[1]).reshape((-1,1))).ravel()]).reshape(I.size, I.size)
-                    Wb = np.linalg.solve(W0_sub, W1[index_outputDim][I].reshape(-1,1))
-                    for index_selectedDim in range(n_feat):
-                        W[index_outputDim, I[index_selectedDim]] = Wb[index_selectedDim]
+                    Wb = np.linalg.solve(W0_sub, W1[index_outputDim, I])
+                    W[index_outputDim, I[:-1]] = Wb[:-1]
                     b[0, index_outputDim] = Wb[-1]
                 W = W.T
 
@@ -310,7 +308,7 @@ class FastL2LiR(object):
         # Prepare the matixes to save.
         W = np.zeros((Y.shape[1], X.shape[1]), dtype=dtype)    # feature size x voxel size
         b = np.zeros((1, Y.shape[1]), dtype=dtype)             # feautre size
-        S = np.zeros((Y.shape[1], X.shape[1]), dtype=np.bool)  # feature size x voxel size
+        S = np.zeros((Y.shape[1], X.shape[1]), dtype=np.bool_)  # feature size x voxel size
 
         if not (pv.major > 3 or (pv.major == 3 and pv.minor >= 5)):
             raise RuntimeError('Python version requires 3.5 or more.')
@@ -343,13 +341,12 @@ class FastL2LiR(object):
                 # Fit
                 newX = np.hstack((newX, np.ones((newX.shape[0], 1), dtype=dtype)))  # Add one column to rightmost column
                 W0 = np.matmul(newX.T, newX) + alpha * np.eye(newX.shape[1], dtype=dtype)
-                W1 = np.matmul(selY.ravel(), newX).reshape(-1,1)
-                Wb = np.linalg.solve(W0, W1)
-                for index_selectedDim in range(n_feat):
-                    W[index_outputDim, I[index_selectedDim]] = Wb[index_selectedDim]
+                rhs = np.matmul(selY.ravel(), newX)
+                Wb = np.linalg.solve(W0, rhs)
+                W[index_outputDim, I] = Wb[:-1]
                 b[0, index_outputDim] = Wb[-1]
             W = W.T
-            S = np.asarray(S.T, dtype=np.bool)  # Transpose and convert to bool type
+            S = np.asarray(S.T, dtype=np.bool_)  # Transpose and convert to bool type
 
         return W, b, S
 

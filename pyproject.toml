@@ -11,10 +11,10 @@ maintainers = [
     { name = "Yoshihiro Nagano", email = "kamitanilab@gmail.com" }
 ]
 license = { file = "LICENSE" }
-requires-python = ">=3.1"
+requires-python = ">=3.10"
 dependencies = [
-    "numpy>=1.16.6",
-    "threadpoolctl>=2.1.0 ; python_full_version >= '3.5'",
+    "numpy>=1.22.0",
+    "threadpoolctl>=2.1.0",
     "tqdm>=4.64.1",
 ]
 [project.urls]

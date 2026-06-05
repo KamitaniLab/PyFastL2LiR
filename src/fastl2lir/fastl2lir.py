@@ -2,17 +2,12 @@
 
 
 import math
-import sys
 from time import time
 import warnings
 
 import numpy as np
+from threadpoolctl import threadpool_limits
 from tqdm import tqdm
-
-pv = sys.version_info
-
-if pv.major > 3 or (pv.major == 3 and pv.minor >= 5):
-    from threadpoolctl import threadpool_limits
 
 
 class FastL2LiR(object):
@@ -264,28 +259,14 @@ class FastL2LiR(object):
             W1 = np.matmul(Y.T, X)
             C = C.T
 
-            # TODO: refactoring
-            if pv.major > 3 or (pv.major == 3 and pv.minor >= 5):
-                with threadpool_limits(limits=1, user_api='blas'):
-                    for index_outputDim in tqdm(range(Y.shape[1])):
-                        C0 = abs(C[index_outputDim,:])
-                        I = np.argsort(C0)
-                        I = I[::-1]
-                        I = I[0:n_feat]
-                        I = np.hstack((I, X.shape[1]-1))
-                        W0_sub = (W0.ravel()[(I + (I * W0.shape[1]).reshape((-1, 1))).ravel()]).reshape(I.size, I.size)
-                        Wb = np.linalg.solve(W0_sub, W1[index_outputDim, I])
-                        W[index_outputDim, I[:-1]] = Wb[:-1]
-                        b[0, index_outputDim] = Wb[-1]
-                    W = W.T
-            else:
+            with threadpool_limits(limits=1, user_api='blas'):
                 for index_outputDim in tqdm(range(Y.shape[1])):
                     C0 = abs(C[index_outputDim,:])
                     I = np.argsort(C0)
                     I = I[::-1]
                     I = I[0:n_feat]
                     I = np.hstack((I, X.shape[1]-1))
-                    W0_sub = (W0.ravel()[(I + (I * W0.shape[1]).reshape((-1,1))).ravel()]).reshape(I.size, I.size)
+                    W0_sub = (W0.ravel()[(I + (I * W0.shape[1]).reshape((-1, 1))).ravel()]).reshape(I.size, I.size)
                     Wb = np.linalg.solve(W0_sub, W1[index_outputDim, I])
                     W[index_outputDim, I[:-1]] = Wb[:-1]
                     b[0, index_outputDim] = Wb[-1]
@@ -309,9 +290,6 @@ class FastL2LiR(object):
         W = np.zeros((Y.shape[1], X.shape[1]), dtype=dtype)    # feature size x voxel size
         b = np.zeros((1, Y.shape[1]), dtype=dtype)             # feautre size
         S = np.zeros((Y.shape[1], X.shape[1]), dtype=np.bool_)  # feature size x voxel size
-
-        if not (pv.major > 3 or (pv.major == 3 and pv.minor >= 5)):
-            raise RuntimeError('Python version requires 3.5 or more.')
 
         with threadpool_limits(limits=1, user_api='blas'):
             for index_outputDim in tqdm(range(Y.shape[1])):

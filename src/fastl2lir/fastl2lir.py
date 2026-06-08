@@ -346,7 +346,7 @@ class FastL2LiR(object):
             for index_outputDim in tqdm(range(Y.shape[1])):
                 # Select training samples
                 if select_sample is None:
-                    pass
+                    selector = slice(None)
                 elif (
                     select_sample == "remove_nan"
                 ):  # Delete sample with nan value in unit

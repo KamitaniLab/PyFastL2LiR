@@ -137,22 +137,22 @@ class TestFastL2LiR(TestCase):
         np.testing.assert_array_almost_equal(yp_2d, data["yp_2d"])
 
     def test_solver_numpy_matches_scipy(self):
-        '''numpy solver produces same result as scipy solver (default).'''
-        data = np.load('./tests/testdata_basic.npz')
+        """numpy solver produces same result as scipy solver (default)."""
+        data = np.load("./tests/testdata_basic.npz")
 
-        model_scipy = fastl2lir.FastL2LiR(solver='scipy')
-        model_numpy = fastl2lir.FastL2LiR(solver='numpy')
+        model_scipy = fastl2lir.FastL2LiR(solver="scipy")
+        model_numpy = fastl2lir.FastL2LiR(solver="numpy")
 
-        model_scipy.fit(data['x_tr'], data['y_2d'])
-        model_numpy.fit(data['x_tr'], data['y_2d'])
+        model_scipy.fit(data["x_tr"], data["y_2d"])
+        model_numpy.fit(data["x_tr"], data["y_2d"])
 
         np.testing.assert_array_almost_equal(model_numpy.W, model_scipy.W)
         np.testing.assert_array_almost_equal(model_numpy.b, model_scipy.b)
 
     def test_solver_invalid(self):
-        '''Invalid solver name raises ValueError.'''
+        """Invalid solver name raises ValueError."""
         with self.assertRaises(ValueError):
-            fastl2lir.FastL2LiR(solver='cholesky')
+            fastl2lir.FastL2LiR(solver="cholesky")
 
     def test_reshape(self):
         """Test for reshaping."""
@@ -172,12 +172,11 @@ class TestFastL2LiR(TestCase):
         np.testing.assert_array_equal(model_test.b.shape, (1,) + Y_shape[1:])
         np.testing.assert_array_equal(pred_test.shape, Y_shape)
 
-
     def test_save_select_feat_default_select_sample(self):
-        '''save_select_feat=True with default select_sample=None should not raise.'''
-        data = np.load('./tests/testdata_nfeat.npz')
+        """save_select_feat=True with default select_sample=None should not raise."""
+        data = np.load("./tests/testdata_nfeat.npz")
         model = fastl2lir.FastL2LiR()
-        model.fit(data['x_tr'], data['y_1d'], n_feat=20, save_select_feat=True)
+        model.fit(data["x_tr"], data["y_1d"], n_feat=20, save_select_feat=True)
 
 
 if __name__ == "__main__":

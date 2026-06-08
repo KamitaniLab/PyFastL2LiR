@@ -13,24 +13,26 @@ from scipy import linalg as sp_linalg
 class FastL2LiR(object):
     """Fast L2-regularized linear regression class."""
 
-    def __init__(self, W=np.array([]), b=np.array([]), verbose=False, solver='scipy'):
+    def __init__(self, W=np.array([]), b=np.array([]), verbose=False, solver="scipy"):
         self.__W = W
         self.__b = b
         self.__verbose = verbose
         self.__solver = solver
 
         # Choose linear solver once to avoid branching at call sites
-        if solver == 'scipy':
+        if solver == "scipy":
+
             def _solve(a, b):
                 try:
-                    return sp_linalg.solve(a, b, assume_a='pos', check_finite=False)
+                    return sp_linalg.solve(a, b, assume_a="pos", check_finite=False)
                 except sp_linalg.LinAlgError:
-                    return sp_linalg.solve(a, b, assume_a='sym', check_finite=False)
-        elif solver == 'numpy':
+                    return sp_linalg.solve(a, b, assume_a="sym", check_finite=False)
+        elif solver == "numpy":
+
             def _solve(a, b):
                 return np.linalg.solve(a, b)
         else:
-            raise ValueError('Unknown solver: %s' % solver)
+            raise ValueError("Unknown solver: %s" % solver)
         self.__solve = _solve
 
     @property

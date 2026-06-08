@@ -1,5 +1,4 @@
-'''PyFastL2LiR: Fast L2-regularized Linear Regression.'''
-
+"""PyFastL2LiR: Fast L2-regularized Linear Regression."""
 
 import math
 from time import time
@@ -11,7 +10,7 @@ from tqdm import tqdm
 
 
 class FastL2LiR(object):
-    '''Fast L2-regularized linear regression class.'''
+    """Fast L2-regularized linear regression class."""
 
     def __init__(self, W=np.array([]), b=np.array([]), verbose=False):
         self.__W = W
@@ -42,8 +41,20 @@ class FastL2LiR(object):
     def S(self, S):
         self.__S = S
 
-    def fit(self, X, Y, alpha=1.0, n_feat=0, save_select_feat=False, spatial_norm=None, select_sample=None, chunk_size=0, cache_dir='./cache', dtype=np.float64):
-        '''Fit the L2-regularized linear model with the given data.
+    def fit(
+        self,
+        X,
+        Y,
+        alpha=1.0,
+        n_feat=0,
+        save_select_feat=False,
+        spatial_norm=None,
+        select_sample=None,
+        chunk_size=0,
+        cache_dir="./cache",
+        dtype=np.float64,
+    ):
+        """Fit the L2-regularized linear model with the given data.
 
         Parameters
         ----------
@@ -74,7 +85,7 @@ class FastL2LiR(object):
         -------
         self
             Returns an instance of self.
-        '''
+        """
 
         if X.dtype != dtype:
             X = X.astype(dtype)
@@ -86,7 +97,7 @@ class FastL2LiR(object):
 
         if reshape_y:
             Y_shape = Y.shape
-            Y = Y.reshape(Y.shape[0], -1, order='F')
+            Y = Y.reshape(Y.shape[0], -1, order="F")
 
         # Feature selection settings
         if n_feat == 0:
@@ -95,7 +106,9 @@ class FastL2LiR(object):
         no_feature_selection = X.shape[1] == n_feat
 
         if n_feat > X.shape[1]:
-            warnings.warn('X has less features than n_feat (X.shape[1] < n_feat). Feature selection is not applied.')
+            warnings.warn(
+                "X has less features than n_feat (X.shape[1] < n_feat). Feature selection is not applied."
+            )
             no_feature_selection = True
 
         # # Save selected voxel mode
@@ -108,7 +121,7 @@ class FastL2LiR(object):
             chunks = self.__get_chunks(range(Y.shape[1]), chunk_size)
 
             if self.__verbose:
-                print('Num chunks: %d' % len(chunks))
+                print("Num chunks: %d" % len(chunks))
 
             w_list = []
             b_list = []
@@ -117,24 +130,30 @@ class FastL2LiR(object):
                 start_time = time()
                 if save_select_feat:
                     W, b, S = self.__sub_fit_save_select_feat(
-                        X, Y[0:, chunk], alpha=alpha, n_feat=n_feat,
+                        X,
+                        Y[0:, chunk],
+                        alpha=alpha,
+                        n_feat=n_feat,
                         spatial_norm=spatial_norm,
                         use_all_features=no_feature_selection,
                         select_sample=select_sample,
-                        dtype=dtype
+                        dtype=dtype,
                     )
                     s_list.append(S)
                 else:
                     W, b = self.__sub_fit(
-                        X, Y[0:, chunk], alpha=alpha, n_feat=n_feat,
+                        X,
+                        Y[0:, chunk],
+                        alpha=alpha,
+                        n_feat=n_feat,
                         use_all_features=no_feature_selection,
-                        dtype=dtype
+                        dtype=dtype,
                     )
                 w_list.append(W)
                 b_list.append(b)
 
                 if self.__verbose:
-                    print('Chunk %d (time: %f s)' % (i + 1, time() - start_time))
+                    print("Chunk %d (time: %f s)" % (i + 1, time() - start_time))
 
             W = np.hstack(w_list)
             b = np.hstack(b_list)
@@ -143,17 +162,23 @@ class FastL2LiR(object):
         else:
             if save_select_feat:
                 W, b, S = self.__sub_fit_save_select_feat(
-                    X, Y, alpha=alpha, n_feat=n_feat,
+                    X,
+                    Y,
+                    alpha=alpha,
+                    n_feat=n_feat,
                     spatial_norm=spatial_norm,
                     use_all_features=no_feature_selection,
                     select_sample=select_sample,
-                    dtype=dtype
+                    dtype=dtype,
                 )
             else:
                 W, b = self.__sub_fit(
-                    X, Y, alpha=alpha, n_feat=n_feat,
+                    X,
+                    Y,
+                    alpha=alpha,
+                    n_feat=n_feat,
                     use_all_features=no_feature_selection,
-                    dtype=dtype
+                    dtype=dtype,
                 )
 
         self.__W = W
@@ -162,16 +187,18 @@ class FastL2LiR(object):
             self.__S = S
 
         if reshape_y:
-            Y = Y.reshape(Y_shape, order='F')
-            self.__W = self.__W.reshape((self.__W.shape[0],) + Y_shape[1:], order='F')
-            self.__b = self.__b.reshape((1,) + Y_shape[1:], order='F')
+            Y = Y.reshape(Y_shape, order="F")
+            self.__W = self.__W.reshape((self.__W.shape[0],) + Y_shape[1:], order="F")
+            self.__b = self.__b.reshape((1,) + Y_shape[1:], order="F")
             if save_select_feat:
-                self.__S = self.__S.reshape((self.__S.shape[0],) + Y_shape[1:], order='F')
+                self.__S = self.__S.reshape(
+                    (self.__S.shape[0],) + Y_shape[1:], order="F"
+                )
 
         return self
 
     def predict(self, X, dtype=np.float64, save_select_feat=False, spatial_norm=None):
-        '''Predict with the fitted linear model.
+        """Predict with the fitted linear model.
 
         Parameters
         ----------
@@ -187,7 +214,7 @@ class FastL2LiR(object):
         Returns
         -------
         Y : array_like
-        '''
+        """
         if X.dtype != dtype:
             X = X.astype(dtype)
 
@@ -200,10 +227,10 @@ class FastL2LiR(object):
         reshape_y = self.__W.ndim > 2
         if reshape_y:
             Y_shape = self.__W.shape
-            W = self.__W.reshape(self.__W.shape[0], -1, order='F')
-            b = self.__b.reshape(self.__b.shape[0], -1, order='F')
+            W = self.__W.reshape(self.__W.shape[0], -1, order="F")
+            b = self.__b.reshape(self.__b.shape[0], -1, order="F")
             if save_select_feat:
-                S = self.__S.reshape(self.__S.shape[0], -1, order='F')
+                S = self.__S.reshape(self.__S.shape[0], -1, order="F")
         else:
             W = self.__W
             b = self.__b
@@ -222,106 +249,138 @@ class FastL2LiR(object):
 
                 # Predict
                 newW = W[:, si].reshape(-1, 1)
-                newW = newW[selected_voxel, :].reshape(-1, 1)  # extract selected features
+                newW = newW[selected_voxel, :].reshape(
+                    -1, 1
+                )  # extract selected features
                 Y[:, si] = (np.matmul(newX, newW) + b[:, si]).flatten()
         else:
             Y = np.matmul(X, W) + np.matmul(np.ones((X.shape[0], 1), dtype=dtype), b)
 
         if reshape_y:
-            Y = Y.reshape((Y.shape[0],) + Y_shape[1:], order='F')
+            Y = Y.reshape((Y.shape[0],) + Y_shape[1:], order="F")
 
         return Y
 
-    def __sub_fit(self, X, Y, alpha=0, n_feat=0, use_all_features=True, dtype=np.float64):
+    def __sub_fit(
+        self, X, Y, alpha=0, n_feat=0, use_all_features=True, dtype=np.float64
+    ):
         if use_all_features:
             # Without feature selection
             X = np.hstack((X, np.ones((X.shape[0], 1), dtype=dtype)))
-            
+
             # Choose the more efficient method based on matrix dimensions
             if X.shape[0] > X.shape[1]:
                 # Use primal form for tall matrices (more samples than features)
-                Wb = np.linalg.solve(np.matmul(X.T, X) + alpha * np.eye(X.shape[1], dtype=dtype), np.matmul(X.T, Y))
+                Wb = np.linalg.solve(
+                    np.matmul(X.T, X) + alpha * np.eye(X.shape[1], dtype=dtype),
+                    np.matmul(X.T, Y),
+                )
             else:
                 # Use dual form for wide matrices (more features than samples)
-                Wb = np.matmul(X.T, np.linalg.solve(np.matmul(X, X.T) + alpha * np.eye(X.shape[0], dtype=dtype), Y))
-            
+                Wb = np.matmul(
+                    X.T,
+                    np.linalg.solve(
+                        np.matmul(X, X.T) + alpha * np.eye(X.shape[0], dtype=dtype), Y
+                    ),
+                )
+
             W = Wb[0:-1, :]
             b = Wb[-1, :][np.newaxis, :]  # Returning b as a 2D array
         else:
             # With feature selection
             W = np.zeros((Y.shape[1], X.shape[1]), dtype=dtype)
             b = np.zeros((1, Y.shape[1]), dtype=dtype)
-            I = np.nonzero(np.var(X, axis=0) < 0.00000001)
-            C = corrmat(X, Y, 'col')
-            C[I, :] = 0.0
+            zero_var_idx = np.nonzero(np.var(X, axis=0) < 0.00000001)
+            C = corrmat(X, Y, "col")
+            C[zero_var_idx, :] = 0.0
             X = np.hstack((X, np.ones((X.shape[0], 1), dtype=dtype)))
             W0 = np.matmul(X.T, X) + alpha * np.eye(X.shape[1], dtype=dtype)
             W1 = np.matmul(Y.T, X)
             C = C.T
 
-            with threadpool_limits(limits=1, user_api='blas'):
+            with threadpool_limits(limits=1, user_api="blas"):
                 for index_outputDim in tqdm(range(Y.shape[1])):
-                    C0 = abs(C[index_outputDim,:])
-                    I = np.argsort(C0)
-                    I = I[::-1]
-                    I = I[0:n_feat]
-                    I = np.hstack((I, X.shape[1]-1))
-                    W0_sub = (W0.ravel()[(I + (I * W0.shape[1]).reshape((-1, 1))).ravel()]).reshape(I.size, I.size)
-                    Wb = np.linalg.solve(W0_sub, W1[index_outputDim, I])
-                    W[index_outputDim, I[:-1]] = Wb[:-1]
+                    C0 = abs(C[index_outputDim, :])
+                    feat_idx = np.argsort(C0)
+                    feat_idx = feat_idx[::-1]
+                    feat_idx = feat_idx[0:n_feat]
+                    feat_idx = np.hstack((feat_idx, X.shape[1] - 1))
+                    W0_sub = (
+                        W0.ravel()[
+                            (
+                                feat_idx + (feat_idx * W0.shape[1]).reshape((-1, 1))
+                            ).ravel()
+                        ]
+                    ).reshape(feat_idx.size, feat_idx.size)
+                    Wb = np.linalg.solve(W0_sub, W1[index_outputDim, feat_idx])
+                    W[index_outputDim, feat_idx[:-1]] = Wb[:-1]
                     b[0, index_outputDim] = Wb[-1]
                 W = W.T
 
         return W, b
 
     def __sub_fit_save_select_feat(
-            self, X, Y, alpha=0, n_feat=0,
-            spatial_norm=None,
-            use_all_features=True,
-            select_sample=None,
-            dtype=np.float64
+        self,
+        X,
+        Y,
+        alpha=0,
+        n_feat=0,
+        spatial_norm=None,
+        use_all_features=True,
+        select_sample=None,
+        dtype=np.float64,
     ):
-        '''
+        """
         Execute fitting for each unit.
         Enables spatial normalization for selected voxels and selection of
         training samples.
-        '''
+        """
         # Prepare the matixes to save.
-        W = np.zeros((Y.shape[1], X.shape[1]), dtype=dtype)    # feature size x voxel size
-        b = np.zeros((1, Y.shape[1]), dtype=dtype)             # feautre size
-        S = np.zeros((Y.shape[1], X.shape[1]), dtype=np.bool_)  # feature size x voxel size
+        W = np.zeros((Y.shape[1], X.shape[1]), dtype=dtype)  # feature size x voxel size
+        b = np.zeros((1, Y.shape[1]), dtype=dtype)  # feautre size
+        S = np.zeros(
+            (Y.shape[1], X.shape[1]), dtype=np.bool_
+        )  # feature size x voxel size
 
-        with threadpool_limits(limits=1, user_api='blas'):
+        with threadpool_limits(limits=1, user_api="blas"):
             for index_outputDim in tqdm(range(Y.shape[1])):
                 # Select training samples
                 if select_sample is None:
                     selector = slice(None)
-                elif select_sample == 'remove_nan':  # Delete sample with nan value in unit
+                elif (
+                    select_sample == "remove_nan"
+                ):  # Delete sample with nan value in unit
                     selector = np.logical_not(np.isnan(Y[:, index_outputDim].flatten()))
                 else:
-                    raise RuntimeError('Not implemented selection method:', select_sample)
+                    raise RuntimeError(
+                        "Not implemented selection method:", select_sample
+                    )
                 selX = X[selector, :]
                 selY = Y[selector, index_outputDim].reshape(-1, 1)
 
                 # Select voxels
                 if use_all_features:
-                    I = np.arange(selX.shape[1])
+                    feat_idx = np.arange(selX.shape[1])
                 else:
-                    C0 = abs(corrmat(selX, selY, 'col')).ravel()
-                    I = np.argsort(C0 * -1)
-                    I = I[0:n_feat]
-                newX = selX[:, I]  # sample_num x voxel_num
-                S[index_outputDim, I] = True
+                    C0 = abs(corrmat(selX, selY, "col")).ravel()
+                    feat_idx = np.argsort(C0 * -1)
+                    feat_idx = feat_idx[0:n_feat]
+                newX = selX[:, feat_idx]  # sample_num x voxel_num
+                S[index_outputDim, feat_idx] = True
 
                 # Perform the spatial normalization
                 newX = self.__apply_spatial_normalization(newX, spatial_norm)
 
                 # Fit
-                newX = np.hstack((newX, np.ones((newX.shape[0], 1), dtype=dtype)))  # Add one column to rightmost column
-                W0 = np.matmul(newX.T, newX) + alpha * np.eye(newX.shape[1], dtype=dtype)
+                newX = np.hstack(
+                    (newX, np.ones((newX.shape[0], 1), dtype=dtype))
+                )  # Add one column to rightmost column
+                W0 = np.matmul(newX.T, newX) + alpha * np.eye(
+                    newX.shape[1], dtype=dtype
+                )
                 rhs = np.matmul(selY.ravel(), newX)
                 Wb = np.linalg.solve(W0, rhs)
-                W[index_outputDim, I] = Wb[:-1]
+                W[index_outputDim, feat_idx] = Wb[:-1]
                 b[0, index_outputDim] = Wb[-1]
             W = W.T
             S = np.asarray(S.T, dtype=np.bool_)  # Transpose and convert to bool type
@@ -341,35 +400,45 @@ class FastL2LiR(object):
         return chunks
 
     def __apply_spatial_normalization(self, X, spatial_norm):
-        '''
+        """
         Perform the spatial normalization
-        '''
+        """
         if spatial_norm is None:
             pass
-        elif spatial_norm == 'norm1':  # L1norm (Divide by L1norm on each sample)
+        elif spatial_norm == "norm1":  # L1norm (Divide by L1norm on each sample)
             X = X / np.sum(np.abs(X), axis=1).reshape(X.shape[0], 1)
-        elif spatial_norm == 'norm2':  # L2norm (Divide by L2norm on each sample)
+        elif spatial_norm == "norm2":  # L2norm (Divide by L2norm on each sample)
             X = X / np.sqrt(np.sum(np.square(X), axis=1)).reshape(X.shape[0], 1)
-        elif spatial_norm == 'std1':   # Normalize with STD=1
-            X = (X - np.mean(X, axis=1, keepdims=True)) / np.std(X, axis=1, ddof=1, keepdims=True) + np.mean(X, axis=1, keepdims=True)
-        elif spatial_norm == 'std1mean0':   # Mean correction + Normalize with STD=1
-            X = (X - np.mean(X, axis=1, keepdims=True)) / np.std(X, axis=1, ddof=1, keepdims=True)
-        elif spatial_norm == 'norm1mean0':  # Mean correction + L1norm (Divide by L1norm on each sample)
+        elif spatial_norm == "std1":  # Normalize with STD=1
+            X = (X - np.mean(X, axis=1, keepdims=True)) / np.std(
+                X, axis=1, ddof=1, keepdims=True
+            ) + np.mean(X, axis=1, keepdims=True)
+        elif spatial_norm == "std1mean0":  # Mean correction + Normalize with STD=1
+            X = (X - np.mean(X, axis=1, keepdims=True)) / np.std(
+                X, axis=1, ddof=1, keepdims=True
+            )
+        elif (
+            spatial_norm == "norm1mean0"
+        ):  # Mean correction + L1norm (Divide by L1norm on each sample)
             X = X - np.mean(X, axis=1, keepdims=True)
             X = X / np.sum(np.abs(X), axis=1).reshape(X.shape[0], 1)
-        elif spatial_norm == 'norm2mean0':  # Mean correction + L2norm (Divide by L2norm on each sample)
+        elif (
+            spatial_norm == "norm2mean0"
+        ):  # Mean correction + L2norm (Divide by L2norm on each sample)
             X = X - np.mean(X, axis=1, keepdims=True)
             X = X / np.sqrt(np.sum(np.square(X), axis=1)).reshape(X.shape[0], 1)
         else:
-            raise RuntimeError('Not implemented spatial normalization method:', spatial_norm)
+            raise RuntimeError(
+                "Not implemented spatial normalization method:", spatial_norm
+            )
         return X
 
 
 # Functions ##################################################################
 
 
-def corrmat(x, y, var='row'):
-    '''
+def corrmat(x, y, var="row"):
+    """
     Returns correlation matrix between `x` and `y`
 
     Parameters
@@ -383,24 +452,25 @@ def corrmat(x, y, var='row'):
     -------
     rmat
         Correlation matrix
-    '''
+    """
 
     # Fix x and y to represent variables in each row
-    if var == 'row':
+    if var == "row":
         pass
-    elif var == 'col':
+    elif var == "col":
         x = x.T
         y = y.T
     else:
-        raise ValueError('Unknown var parameter specified')
+        raise ValueError("Unknown var parameter specified")
 
     nobs = x.shape[1]
 
     # Subtract mean(a, axis=1) from a
-    def submean(a): return a - np.matrix(np.mean(a, axis=1)).T
+    def submean(a):
+        return a - np.matrix(np.mean(a, axis=1)).T
 
-    cmat = (np.dot(submean(x), submean(y).T) / (nobs - 1)) / \
-        np.dot(np.matrix(np.std(x, axis=1, ddof=1)).T,
-               np.matrix(np.std(y, axis=1, ddof=1)))
+    cmat = (np.dot(submean(x), submean(y).T) / (nobs - 1)) / np.dot(
+        np.matrix(np.std(x, axis=1, ddof=1)).T, np.matrix(np.std(y, axis=1, ddof=1))
+    )
 
     return np.array(cmat)

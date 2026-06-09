@@ -66,8 +66,8 @@ BENCH_N=24 BENCH_P=12 BENCH_K=4 BENCH_REPEATS=1 BENCH_CASES=fc8 ./speedtests/spe
 - `BENCH_P`: Number of input features or voxels. Default: `15000`.
 - `BENCH_K`: Number of selected features. Default: `500`.
 - `BENCH_REPEATS`: Repeats per benchmark case. Default: `3`.
-- `BENCH_CASES`: Comma-separated subset of `fc8`, `fc6`, `conv5`, and
-  `conv5_chunk10`.
+- `BENCH_CASES`: Comma-separated subset of `fc8`, `fc6`, `conv5_chunk5`, and
+  `conv4_chunk5`.
 - `BENCH_RUNNERS`: Comma-separated subset of available runner labels. The
   current speed run supports `numpy` and `numba`; the legacy speed run supports
   `legacy`.

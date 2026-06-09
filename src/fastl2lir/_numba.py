@@ -81,7 +81,7 @@ def _fit_selected_ridge_numba(X, C, W, b, W0, W1, n_feat):
 
     for index_outputDim in prange(n_outputs):
         C0 = np.abs(C[index_outputDim, :])
-        feat_idx = np.argsort(C0)[::-1]
+        feat_idx = np.argsort(C0, kind="mergesort")[::-1]
         feat_idx = feat_idx[:n_feat]
 
         I_with_bias = np.empty(feat_idx.size + 1, dtype=feat_idx.dtype)

@@ -107,6 +107,8 @@ class FastL2LiR(object):
         self
             Returns an instance of self.
         """
+        if solver not in ("numpy", "numba"):
+            raise ValueError("solver must be 'numpy' or 'numba'")
 
         if X.dtype != dtype:
             X = X.astype(dtype)
@@ -136,6 +138,13 @@ class FastL2LiR(object):
         if not save_select_feat:
             if (spatial_norm is not None) or (select_sample is not None):
                 save_select_feat = True
+
+        if solver == "numba" and (save_select_feat or no_feature_selection):
+            warnings.warn(
+                "solver='numba' is only used for feature-selection fitting "
+                "when save_select_feat is False. Falling back to the numpy "
+                "fit path for this call."
+            )
 
         # Chunking
         if chunk_size > 0:
@@ -335,7 +344,7 @@ class FastL2LiR(object):
                 with threadpool_limits(limits=1, user_api="blas"):
                     for index_outputDim in tqdm(range(Y.shape[1])):
                         C0 = abs(C[index_outputDim, :])
-                        feat_idx = np.argsort(C0)
+                        feat_idx = np.argsort(C0, kind="mergesort")
                         feat_idx = feat_idx[::-1]
                         feat_idx = feat_idx[0:n_feat]
                         feat_idx = np.hstack((feat_idx, X.shape[1] - 1))

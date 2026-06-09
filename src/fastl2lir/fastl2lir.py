@@ -92,6 +92,11 @@ class FastL2LiR(object):
             'numpy' preserves the original implementation and is the default.
             'numba' uses the experimental numba implementation only when
             feature selection is enabled and save_select_feat is False.
+            Note: the numba solver always performs the per-unit linear solve
+            in float64 and casts the result back to ``dtype``. With
+            ``dtype=np.float32`` its weights/bias therefore differ slightly
+            from the numpy solver (which solves in float32); the two agree
+            only up to float32 precision, not bit-for-bit.
         numba_num_threads: int or None
             Maximum number of numba threads used while solver='numba'. The
             previous numba thread count is restored after fitting. Set to None

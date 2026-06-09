@@ -2,6 +2,8 @@
 ._*
 
 *.pyc
+*.nbc
+*.nbi
 *.egg-info
 build
 dist

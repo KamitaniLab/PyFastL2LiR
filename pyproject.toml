@@ -17,6 +17,13 @@ dependencies = [
     "threadpoolctl>=2.1.0",
     "tqdm>=4.64.1",
 ]
+
+[project.optional-dependencies]
+numba = [
+    "numba>=0.59",
+    "scipy>=1.8.0",
+]
+
 [project.urls]
 Homepage = "https://github.com/KamitaniLab/PyFastL2LiR"
 Repository = "https://github.com/KamitaniLab/PyFastL2LiR"

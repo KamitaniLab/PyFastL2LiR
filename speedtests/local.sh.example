@@ -1,0 +1,12 @@
+# Copy this file to speedtests/local.sh and edit paths for your machine.
+# speedtests/local.sh is intentionally ignored by git.
+
+# Python environment used by speedtests/speedrun.sh. Relative paths are resolved from the
+# repository root.
+VENV_PATH=.venv
+
+# Legacy environment used by speedtests/speedrun_legacy.sh.
+LEGACY_CONDA=.venv-legacy
+
+# MKL-oriented environment used by speedtests/speedrun_mkl.sh.
+MKL_CONDA=.venv-mkl

@@ -149,6 +149,22 @@ class TestFastL2LiR(TestCase):
         np.testing.assert_array_almost_equal(model_numpy.W, model_scipy.W)
         np.testing.assert_array_almost_equal(model_numpy.b, model_scipy.b)
 
+    def test_solver_helpers_agree(self):
+        """FastL2LiR's numpy and scipy solvers agree on the same linear system."""
+        rng = np.random.default_rng(0)
+        n = 50
+        A = rng.standard_normal((n, n))
+        A = A.T @ A + np.eye(n)  # symmetric positive definite
+        b = rng.standard_normal((n, 10))
+
+        model_numpy = fastl2lir.FastL2LiR(solver="numpy")
+        model_scipy = fastl2lir.FastL2LiR(solver="scipy")
+
+        result_numpy = model_numpy._FastL2LiR__solve(A, b)
+        result_scipy = model_scipy._FastL2LiR__solve(A, b)
+
+        np.testing.assert_array_almost_equal(result_numpy, result_scipy)
+
     def test_solver_pickle(self):
         """FastL2LiR instance with scipy solver can be pickled and unpickled."""
         import pickle

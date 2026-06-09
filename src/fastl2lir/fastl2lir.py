@@ -32,7 +32,9 @@ class FastL2LiR(object):
             def _solve(a, b):
                 return np.linalg.solve(a, b)
         else:
-            raise ValueError("Unknown solver: %s" % solver)
+            raise ValueError(
+                f"Unknown solver: {solver!r}. Expected one of: 'scipy', 'numpy'."
+            )
         self.__solve = _solve
 
     @property

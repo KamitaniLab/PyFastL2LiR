@@ -154,12 +154,11 @@ class TestFastL2LiR(TestCase):
         np.testing.assert_array_equal(model_test.b.shape, (1,) + Y_shape[1:])
         np.testing.assert_array_equal(pred_test.shape, Y_shape)
 
-
     def test_save_select_feat_default_select_sample(self):
-        '''save_select_feat=True with default select_sample=None should not raise.'''
-        data = np.load('./tests/testdata_nfeat.npz')
+        """save_select_feat=True with default select_sample=None should not raise."""
+        data = np.load("./tests/testdata_nfeat.npz")
         model = fastl2lir.FastL2LiR()
-        model.fit(data['x_tr'], data['y_1d'], n_feat=20, save_select_feat=True)
+        model.fit(data["x_tr"], data["y_1d"], n_feat=20, save_select_feat=True)
 
 
 if __name__ == "__main__":

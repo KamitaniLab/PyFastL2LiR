@@ -8,6 +8,11 @@ import numpy as np
 from threadpoolctl import threadpool_limits
 from tqdm import tqdm
 
+try:
+    from ._numba import fit_selected_ridge_numba
+except ImportError:
+    fit_selected_ridge_numba = None
+
 
 class FastL2LiR(object):
     """Fast L2-regularized linear regression class."""
@@ -53,6 +58,8 @@ class FastL2LiR(object):
         chunk_size=0,
         cache_dir="./cache",
         dtype=np.float64,
+        solver="numpy",
+        numba_num_threads=4,
     ):
         """Fit the L2-regularized linear model with the given data.
 
@@ -80,12 +87,28 @@ class FastL2LiR(object):
             because this is an operation for each unit.
             (The sample selection operation itself does not essentially need
             to record the selected voxel.)
+        solver: str ('numpy' or 'numba')
+            Solver used for fitting with feature selection.
+            'numpy' preserves the original implementation and is the default.
+            'numba' uses the experimental numba implementation only when
+            feature selection is enabled and save_select_feat is False.
+            Note: the numba solver always performs the per-unit linear solve
+            in float64 and casts the result back to ``dtype``. With
+            ``dtype=np.float32`` its weights/bias therefore differ slightly
+            from the numpy solver (which solves in float32); the two agree
+            only up to float32 precision, not bit-for-bit.
+        numba_num_threads: int or None
+            Maximum number of numba threads used while solver='numba'. The
+            previous numba thread count is restored after fitting. Set to None
+            to leave the current numba thread count unchanged.
 
         Returns
         -------
         self
             Returns an instance of self.
         """
+        if solver not in ("numpy", "numba"):
+            raise ValueError("solver must be 'numpy' or 'numba'")
 
         if X.dtype != dtype:
             X = X.astype(dtype)
@@ -115,6 +138,13 @@ class FastL2LiR(object):
         if not save_select_feat:
             if (spatial_norm is not None) or (select_sample is not None):
                 save_select_feat = True
+
+        if solver == "numba" and (save_select_feat or no_feature_selection):
+            warnings.warn(
+                "solver='numba' is only used for feature-selection fitting "
+                "when save_select_feat is False. Falling back to the numpy "
+                "fit path for this call."
+            )
 
         # Chunking
         if chunk_size > 0:
@@ -148,6 +178,8 @@ class FastL2LiR(object):
                         n_feat=n_feat,
                         use_all_features=no_feature_selection,
                         dtype=dtype,
+                        solver=solver,
+                        numba_num_threads=numba_num_threads,
                     )
                 w_list.append(W)
                 b_list.append(b)
@@ -179,6 +211,8 @@ class FastL2LiR(object):
                     n_feat=n_feat,
                     use_all_features=no_feature_selection,
                     dtype=dtype,
+                    solver=solver,
+                    numba_num_threads=numba_num_threads,
                 )
 
         self.__W = W
@@ -262,7 +296,15 @@ class FastL2LiR(object):
         return Y
 
     def __sub_fit(
-        self, X, Y, alpha=0, n_feat=0, use_all_features=True, dtype=np.float64
+        self,
+        X,
+        Y,
+        alpha=0,
+        n_feat=0,
+        use_all_features=True,
+        dtype=np.float64,
+        solver="numpy",
+        numba_num_threads=4,
     ):
         if use_all_features:
             # Without feature selection
@@ -298,24 +340,33 @@ class FastL2LiR(object):
             W1 = np.matmul(Y.T, X)
             C = C.T
 
-            with threadpool_limits(limits=1, user_api="blas"):
-                for index_outputDim in tqdm(range(Y.shape[1])):
-                    C0 = abs(C[index_outputDim, :])
-                    feat_idx = np.argsort(C0)
-                    feat_idx = feat_idx[::-1]
-                    feat_idx = feat_idx[0:n_feat]
-                    feat_idx = np.hstack((feat_idx, X.shape[1] - 1))
-                    W0_sub = (
-                        W0.ravel()[
-                            (
-                                feat_idx + (feat_idx * W0.shape[1]).reshape((-1, 1))
-                            ).ravel()
-                        ]
-                    ).reshape(feat_idx.size, feat_idx.size)
-                    Wb = np.linalg.solve(W0_sub, W1[index_outputDim, feat_idx])
-                    W[index_outputDim, feat_idx[:-1]] = Wb[:-1]
-                    b[0, index_outputDim] = Wb[-1]
-                W = W.T
+            if solver == "numpy":
+                with threadpool_limits(limits=1, user_api="blas"):
+                    for index_outputDim in tqdm(range(Y.shape[1])):
+                        C0 = abs(C[index_outputDim, :])
+                        feat_idx = np.argsort(C0, kind="mergesort")
+                        feat_idx = feat_idx[::-1]
+                        feat_idx = feat_idx[0:n_feat]
+                        feat_idx = np.hstack((feat_idx, X.shape[1] - 1))
+                        W0_sub = (
+                            W0.ravel()[
+                                (
+                                    feat_idx + (feat_idx * W0.shape[1]).reshape((-1, 1))
+                                ).ravel()
+                            ]
+                        ).reshape(feat_idx.size, feat_idx.size)
+                        Wb = np.linalg.solve(W0_sub, W1[index_outputDim, feat_idx])
+                        W[index_outputDim, feat_idx[:-1]] = Wb[:-1]
+                        b[0, index_outputDim] = Wb[-1]
+                    W = W.T
+            elif solver == "numba":
+                if fit_selected_ridge_numba is None:
+                    raise ImportError("solver='numba' requires numba to be installed")
+                W, b = fit_selected_ridge_numba(
+                    X, C, W0, W1, n_feat, dtype, numba_num_threads
+                )
+            else:
+                raise ValueError("Unknown solver specified:", solver)
 
         return W, b
 

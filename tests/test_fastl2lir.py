@@ -149,6 +149,29 @@ class TestFastL2LiR(TestCase):
         np.testing.assert_array_almost_equal(model_numpy.W, model_scipy.W)
         np.testing.assert_array_almost_equal(model_numpy.b, model_scipy.b)
 
+    def test_solver_pickle(self):
+        """FastL2LiR instance with scipy solver can be pickled and unpickled."""
+        import pickle
+
+        data = np.load("./tests/testdata_basic.npz")
+        model = fastl2lir.FastL2LiR(solver="scipy")
+        model.fit(data["x_tr"], data["y_2d"])
+        restored = pickle.loads(pickle.dumps(model))
+        np.testing.assert_array_almost_equal(model.W, restored.W)
+        np.testing.assert_array_almost_equal(model.b, restored.b)
+
+    def test_solver_scipy_fallback(self):
+        """scipy solver falls back from assume_a='pos' to 'sym' for indefinite matrix."""
+        from fastl2lir.fastl2lir import _solve_scipy
+
+        n = 20
+        rng = np.random.default_rng(0)
+        A = np.diag([1.0] * (n - 1) + [-1.0])
+        b = rng.standard_normal((n, 5))
+        result = _solve_scipy(A, b)
+        residual = np.linalg.norm(A @ result - b) / np.linalg.norm(b)
+        self.assertLess(residual, 1e-10)
+
     def test_solver_invalid(self):
         """Invalid solver name raises ValueError."""
         with self.assertRaises(ValueError):

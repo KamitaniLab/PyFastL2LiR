@@ -10,6 +10,17 @@ from tqdm import tqdm
 from scipy import linalg as sp_linalg
 
 
+def _solve_scipy(a, b):
+    try:
+        return sp_linalg.solve(a, b, assume_a="pos", check_finite=False)
+    except sp_linalg.LinAlgError:
+        return sp_linalg.solve(a, b, assume_a="sym", check_finite=False)
+
+
+def _solve_numpy(a, b):
+    return np.linalg.solve(a, b)
+
+
 class FastL2LiR(object):
     """Fast L2-regularized linear regression class."""
 
@@ -17,25 +28,15 @@ class FastL2LiR(object):
         self.__W = W
         self.__b = b
         self.__verbose = verbose
-        self.__solver = solver
 
-        # Choose linear solver once to avoid branching at call sites
         if solver == "scipy":
-
-            def _solve(a, b):
-                try:
-                    return sp_linalg.solve(a, b, assume_a="pos", check_finite=False)
-                except sp_linalg.LinAlgError:
-                    return sp_linalg.solve(a, b, assume_a="sym", check_finite=False)
+            self.__solve = _solve_scipy
         elif solver == "numpy":
-
-            def _solve(a, b):
-                return np.linalg.solve(a, b)
+            self.__solve = _solve_numpy
         else:
             raise ValueError(
                 f"Unknown solver: {solver!r}. Expected one of: 'scipy', 'numpy'."
             )
-        self.__solve = _solve
 
     @property
     def W(self):

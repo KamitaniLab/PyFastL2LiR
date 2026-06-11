@@ -150,20 +150,16 @@ class TestFastL2LiR(TestCase):
         np.testing.assert_array_almost_equal(model_numpy.b, model_scipy.b)
 
     def test_solver_helpers_agree(self):
-        """FastL2LiR's numpy and scipy solvers agree on the same linear system."""
+        """_solve_numpy and _solve_scipy return the same result."""
+        from fastl2lir.fastl2lir import _solve_numpy, _solve_scipy
+
         rng = np.random.default_rng(0)
         n = 50
         A = rng.standard_normal((n, n))
-        A = A.T @ A + np.eye(n)  # symmetric positive definite
+        A = A.T @ A + np.eye(n)
         b = rng.standard_normal((n, 10))
 
-        model_numpy = fastl2lir.FastL2LiR(solver="numpy")
-        model_scipy = fastl2lir.FastL2LiR(solver="scipy")
-
-        result_numpy = model_numpy._FastL2LiR__solve(A, b)
-        result_scipy = model_scipy._FastL2LiR__solve(A, b)
-
-        np.testing.assert_array_almost_equal(result_numpy, result_scipy)
+        np.testing.assert_array_almost_equal(_solve_numpy(A, b), _solve_scipy(A, b))
 
     def test_solver_pickle(self):
         """FastL2LiR instance with scipy solver can be pickled and unpickled."""
@@ -175,6 +171,30 @@ class TestFastL2LiR(TestCase):
         restored = pickle.loads(pickle.dumps(model))
         np.testing.assert_array_almost_equal(model.W, restored.W)
         np.testing.assert_array_almost_equal(model.b, restored.b)
+        np.testing.assert_array_almost_equal(
+            model.predict(data["x_te"]), restored.predict(data["x_te"])
+        )
+
+    def test_solver_getstate(self):
+        """__getstate__ does not store the solver function."""
+        model = fastl2lir.FastL2LiR(solver="scipy")
+        state = model.__getstate__()
+        self.assertNotIn("_FastL2LiR__solve", state)
+        self.assertEqual(state["_FastL2LiR__solver"], "scipy")
+
+    def test_solver_legacy_setstate(self):
+        """__setstate__ falls back to numpy for legacy pickles without solver info."""
+        model = fastl2lir.FastL2LiR.__new__(fastl2lir.FastL2LiR)
+        legacy_state = {
+            "_FastL2LiR__W": np.array([]),
+            "_FastL2LiR__b": np.array([]),
+            "_FastL2LiR__verbose": False,
+        }
+        with self.assertWarns(UserWarning):
+            model.__setstate__(legacy_state)
+        self.assertEqual(model._FastL2LiR__solver, "numpy")
+        data = np.load("./tests/testdata_basic.npz")
+        model.fit(data["x_tr"], data["y_2d"])
 
     def test_solver_scipy_fallback(self):
         """scipy solver falls back from assume_a='pos' to 'sym' for indefinite matrix."""

@@ -21,6 +21,14 @@ def _solve_numpy(a, b):
     return np.linalg.solve(a, b)
 
 
+def _get_solver_func(solver):
+    if solver == "scipy":
+        return _solve_scipy
+    if solver == "numpy":
+        return _solve_numpy
+    raise ValueError(f"Unknown solver: {solver!r}. Expected one of: 'scipy', 'numpy'.")
+
+
 class FastL2LiR(object):
     """Fast L2-regularized linear regression class."""
 
@@ -28,15 +36,26 @@ class FastL2LiR(object):
         self.__W = W
         self.__b = b
         self.__verbose = verbose
+        self.__solver = solver
+        self.__solve = _get_solver_func(solver)
 
-        if solver == "scipy":
-            self.__solve = _solve_scipy
-        elif solver == "numpy":
-            self.__solve = _solve_numpy
-        else:
-            raise ValueError(
-                f"Unknown solver: {solver!r}. Expected one of: 'scipy', 'numpy'."
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state.pop("_FastL2LiR__solve", None)
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        solver_key = "_FastL2LiR__solver"
+        if solver_key not in self.__dict__:
+            warnings.warn(
+                "Unpickled a FastL2LiR object without solver information. "
+                "Restoring it with solver='numpy' for backward compatibility.",
+                UserWarning,
+                stacklevel=2,
             )
+            self.__dict__[solver_key] = "numpy"
+        self.__solve = _get_solver_func(self.__dict__[solver_key])
 
     @property
     def W(self):

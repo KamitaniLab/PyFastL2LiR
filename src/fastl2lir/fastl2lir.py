@@ -32,7 +32,7 @@ def _get_solver_func(solver):
 class FastL2LiR(object):
     """Fast L2-regularized linear regression class."""
 
-    def __init__(self, W=np.array([]), b=np.array([]), verbose=False, solver="scipy"):
+    def __init__(self, W=np.array([]), b=np.array([]), verbose=False, solver="numpy"):
         self.__W = W
         self.__b = b
         self.__verbose = verbose

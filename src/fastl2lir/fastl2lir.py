@@ -7,15 +7,55 @@ import warnings
 import numpy as np
 from threadpoolctl import threadpool_limits
 from tqdm import tqdm
+from scipy import linalg as sp_linalg
+
+
+def _solve_scipy(a, b):
+    try:
+        return sp_linalg.solve(a, b, assume_a="pos", check_finite=False)
+    except sp_linalg.LinAlgError:
+        return sp_linalg.solve(a, b, assume_a="sym", check_finite=False)
+
+
+def _solve_numpy(a, b):
+    return np.linalg.solve(a, b)
+
+
+def _get_solver_func(solver):
+    if solver == "scipy":
+        return _solve_scipy
+    if solver == "numpy":
+        return _solve_numpy
+    raise ValueError(f"Unknown solver: {solver!r}. Expected one of: 'scipy', 'numpy'.")
 
 
 class FastL2LiR(object):
     """Fast L2-regularized linear regression class."""
 
-    def __init__(self, W=np.array([]), b=np.array([]), verbose=False):
+    def __init__(self, W=np.array([]), b=np.array([]), verbose=False, solver="numpy"):
         self.__W = W
         self.__b = b
         self.__verbose = verbose
+        self.__solver = solver
+        self.__solve = _get_solver_func(solver)
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state.pop("_FastL2LiR__solve", None)
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        solver_key = "_FastL2LiR__solver"
+        if solver_key not in self.__dict__:
+            warnings.warn(
+                "Unpickled a FastL2LiR object without solver information. "
+                "Restoring it with solver='numpy' for backward compatibility.",
+                UserWarning,
+                stacklevel=2,
+            )
+            self.__dict__[solver_key] = "numpy"
+        self.__solve = _get_solver_func(self.__dict__[solver_key])
 
     @property
     def W(self):
@@ -271,7 +311,7 @@ class FastL2LiR(object):
             # Choose the more efficient method based on matrix dimensions
             if X.shape[0] > X.shape[1]:
                 # Use primal form for tall matrices (more samples than features)
-                Wb = np.linalg.solve(
+                Wb = self.__solve(
                     np.matmul(X.T, X) + alpha * np.eye(X.shape[1], dtype=dtype),
                     np.matmul(X.T, Y),
                 )
@@ -279,11 +319,10 @@ class FastL2LiR(object):
                 # Use dual form for wide matrices (more features than samples)
                 Wb = np.matmul(
                     X.T,
-                    np.linalg.solve(
+                    self.__solve(
                         np.matmul(X, X.T) + alpha * np.eye(X.shape[0], dtype=dtype), Y
                     ),
                 )
-
             W = Wb[0:-1, :]
             b = Wb[-1, :][np.newaxis, :]  # Returning b as a 2D array
         else:
@@ -312,7 +351,7 @@ class FastL2LiR(object):
                             ).ravel()
                         ]
                     ).reshape(feat_idx.size, feat_idx.size)
-                    Wb = np.linalg.solve(W0_sub, W1[index_outputDim, feat_idx])
+                    Wb = self.__solve(W0_sub, W1[index_outputDim, feat_idx])
                     W[index_outputDim, feat_idx[:-1]] = Wb[:-1]
                     b[0, index_outputDim] = Wb[-1]
                 W = W.T
@@ -379,7 +418,7 @@ class FastL2LiR(object):
                     newX.shape[1], dtype=dtype
                 )
                 rhs = np.matmul(selY.ravel(), newX)
-                Wb = np.linalg.solve(W0, rhs)
+                Wb = self.__solve(W0, rhs)
                 W[index_outputDim, feat_idx] = Wb[:-1]
                 b[0, index_outputDim] = Wb[-1]
             W = W.T

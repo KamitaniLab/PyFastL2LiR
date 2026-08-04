@@ -136,6 +136,83 @@ class TestFastL2LiR(TestCase):
 
         np.testing.assert_array_almost_equal(yp_2d, data["yp_2d"])
 
+    def test_solver_numpy_matches_scipy(self):
+        """numpy solver produces same result as scipy solver (default)."""
+        data = np.load("./tests/testdata_basic.npz")
+
+        model_scipy = fastl2lir.FastL2LiR(solver="scipy")
+        model_numpy = fastl2lir.FastL2LiR(solver="numpy")
+
+        model_scipy.fit(data["x_tr"], data["y_2d"])
+        model_numpy.fit(data["x_tr"], data["y_2d"])
+
+        np.testing.assert_array_almost_equal(model_numpy.W, model_scipy.W)
+        np.testing.assert_array_almost_equal(model_numpy.b, model_scipy.b)
+
+    def test_solver_helpers_agree(self):
+        """_solve_numpy and _solve_scipy return the same result."""
+        from fastl2lir.fastl2lir import _solve_numpy, _solve_scipy
+
+        rng = np.random.default_rng(0)
+        n = 50
+        A = rng.standard_normal((n, n))
+        A = A.T @ A + np.eye(n)
+        b = rng.standard_normal((n, 10))
+
+        np.testing.assert_array_almost_equal(_solve_numpy(A, b), _solve_scipy(A, b))
+
+    def test_solver_pickle(self):
+        """FastL2LiR instance with scipy solver can be pickled and unpickled."""
+        import pickle
+
+        data = np.load("./tests/testdata_basic.npz")
+        model = fastl2lir.FastL2LiR(solver="scipy")
+        model.fit(data["x_tr"], data["y_2d"])
+        restored = pickle.loads(pickle.dumps(model))
+        np.testing.assert_array_almost_equal(model.W, restored.W)
+        np.testing.assert_array_almost_equal(model.b, restored.b)
+        np.testing.assert_array_almost_equal(
+            model.predict(data["x_te"]), restored.predict(data["x_te"])
+        )
+
+    def test_solver_getstate(self):
+        """__getstate__ does not store the solver function."""
+        model = fastl2lir.FastL2LiR(solver="scipy")
+        state = model.__getstate__()
+        self.assertNotIn("_FastL2LiR__solve", state)
+        self.assertEqual(state["_FastL2LiR__solver"], "scipy")
+
+    def test_solver_legacy_setstate(self):
+        """__setstate__ falls back to numpy for legacy pickles without solver info."""
+        model = fastl2lir.FastL2LiR.__new__(fastl2lir.FastL2LiR)
+        legacy_state = {
+            "_FastL2LiR__W": np.array([]),
+            "_FastL2LiR__b": np.array([]),
+            "_FastL2LiR__verbose": False,
+        }
+        with self.assertWarns(UserWarning):
+            model.__setstate__(legacy_state)
+        self.assertEqual(model._FastL2LiR__solver, "numpy")
+        data = np.load("./tests/testdata_basic.npz")
+        model.fit(data["x_tr"], data["y_2d"])
+
+    def test_solver_scipy_fallback(self):
+        """scipy solver falls back from assume_a='pos' to 'sym' for indefinite matrix."""
+        from fastl2lir.fastl2lir import _solve_scipy
+
+        n = 20
+        rng = np.random.default_rng(0)
+        A = np.diag([1.0] * (n - 1) + [-1.0])
+        b = rng.standard_normal((n, 5))
+        result = _solve_scipy(A, b)
+        residual = np.linalg.norm(A @ result - b) / np.linalg.norm(b)
+        self.assertLess(residual, 1e-10)
+
+    def test_solver_invalid(self):
+        """Invalid solver name raises ValueError."""
+        with self.assertRaises(ValueError):
+            fastl2lir.FastL2LiR(solver="cholesky")
+
     def test_reshape(self):
         """Test for reshaping."""
         Y_shape = (200, 10, 10, 5)
@@ -154,12 +231,11 @@ class TestFastL2LiR(TestCase):
         np.testing.assert_array_equal(model_test.b.shape, (1,) + Y_shape[1:])
         np.testing.assert_array_equal(pred_test.shape, Y_shape)
 
-
     def test_save_select_feat_default_select_sample(self):
-        '''save_select_feat=True with default select_sample=None should not raise.'''
-        data = np.load('./tests/testdata_nfeat.npz')
+        """save_select_feat=True with default select_sample=None should not raise."""
+        data = np.load("./tests/testdata_nfeat.npz")
         model = fastl2lir.FastL2LiR()
-        model.fit(data['x_tr'], data['y_1d'], n_feat=20, save_select_feat=True)
+        model.fit(data["x_tr"], data["y_1d"], n_feat=20, save_select_feat=True)
 
 
 if __name__ == "__main__":
